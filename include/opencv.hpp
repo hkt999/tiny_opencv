@@ -274,6 +274,8 @@ enum {
 	THRESH_TOZERO,
 	THRESH_TOZERO_INV
 };
+
+// algorithms
 void threshold(const Mat in, Mat &out, double thresh, double maxval, int type);
 void blur(const Mat src, Mat &dst, Size ksize);
 void bilateralFilter(const Mat src, Mat &dst, int d, double sigmaColor, double sigmaSpace);
@@ -282,6 +284,7 @@ void gaussianBlur(const Mat src, Mat &dst, Size ksize, double sigmaX, double sig
 void medianBlur(const Mat src, Mat &dst, int ksize);
 void filter2D(const Mat src, Mat &dst, int ddepth, Mat &kernel);
 void equalizeHist(const Mat src, Mat &dst);
+Mat getRotationMatrix2D(Point2f center, double angle, double scale);
 
 }; // end of namespace
 
