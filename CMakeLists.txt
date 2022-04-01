@@ -7,8 +7,6 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_BUILD_TYPE "Debug")
 
-#set(CMAKE_CXX_FLAGS "-fno-rtti -fno-threadsafe-statics")
-
 add_library(
 	tiny_opencv
 	${CMAKE_CURRENT_LIST_DIR}/include/tiny_opencv.hpp
@@ -68,8 +66,8 @@ add_executable(
 	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_cvtcolor.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_filter.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_matrix.cpp
+	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_kalman.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/util.cpp
-	${CMAKE_CURRENT_LIST_DIR}/test/cv_kalman.cpp
 	#${CMAKE_CURRENT_LIST_DIR}/test/test.cpp
 )
 

@@ -189,11 +189,8 @@ Mat& Mat::operator-(const Mat &m) const
 
 Mat& Mat::operator*(const Mat& m) const
 {
-    if (cols != m.rows)
-        throw Exception("dimention mismtach for multipiler");
-
-    if (type != m.type)
-        throw Exception("type mismatch for matrix type");
+    assert(cols == m.rows);
+    assert(type == m.type);
 
     Mat &t = Mat::zeros(rows, m.cols, type);
     float *c = t.getData<float>();
@@ -567,7 +564,13 @@ void setIdentity(Mat &mat, Scalar sv)
     for (int i=0; i<loop; i++) {
         void *t = (uint8_t *) mat.ref->data + (i * mat.cols + i) * mat.elemSize();
     }
+}
 
+#include <stdio.h>
+void Mat::print(const char *name)
+{
+    printf("matrix name: %s\n", name);
+    printf("    rows=%d, cols=%d\n", rows, cols);
 }
 
 } // end of namespace (KCV)
