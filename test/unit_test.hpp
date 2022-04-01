@@ -48,7 +48,7 @@ void *unit_test_crop_c3(void *data, int width, int height, int roi_x, int roi_y,
 int unit_test_inverse_matrix();
 int unit_test_transport_matrix();
 
-// matrix test karman filter
-int unit_test_karman_filter();
+// matrix test kalman filter
+int unit_test_kalman_filter();
 
 #endif

@@ -11,7 +11,7 @@ set(CMAKE_BUILD_TYPE "Debug")
 
 add_library(
 	tiny_opencv
-	${CMAKE_CURRENT_LIST_DIR}/include/opencv.hpp
+	${CMAKE_CURRENT_LIST_DIR}/include/tiny_opencv.hpp
 	${CMAKE_CURRENT_LIST_DIR}/include/tiny_types.hpp
 	${CMAKE_CURRENT_LIST_DIR}/include/kalman_filter.hpp
 	${CMAKE_CURRENT_LIST_DIR}/include/hungarian.hpp
@@ -69,7 +69,8 @@ add_executable(
 	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_filter.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_matrix.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/util.cpp
-	${CMAKE_CURRENT_LIST_DIR}/test/test.cpp
+	${CMAKE_CURRENT_LIST_DIR}/test/cv_kalman.cpp
+	#${CMAKE_CURRENT_LIST_DIR}/test/test.cpp
 )
 
 find_package(OpenCV REQUIRED)

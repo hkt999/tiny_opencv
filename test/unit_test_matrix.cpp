@@ -2,7 +2,7 @@
 #include <iostream>
 #include <random>
 #include <iomanip>
-#include "opencv.hpp"
+#include "tiny_opencv.hpp"
 
 using namespace KCV;
 using namespace std;
@@ -56,7 +56,7 @@ int unit_test_inverse_matrix()
             }
         }
         delete m;
-        printf("Matrix inverse check OK\n");
+        printf("UnitTest Inverse: OK\n");
         free(data);
     }
 
@@ -66,7 +66,7 @@ int unit_test_inverse_matrix()
 #define DIM_MIN     1
 #define DIM_MAX     100
 #define NUM_ITER    100
-int unit_test_transport_matrix()
+int unit_test_transpose_matrix()
 {
     random_device rd;
     default_random_engine eng(rd());
@@ -94,14 +94,14 @@ int unit_test_transport_matrix()
                 }
             }
         }
-        printf("OK\n");
+        printf("UnitTest Transpose: OK\n");
     }
 
     return 0;
 }
 
 #define NUM_SAMPLES 100
-int unit_test_karman_filter()
+int unit_test_kalman_filter()
 {
     float x[] = {0, 0};
     float p[] = {1, 0, 0, 1};

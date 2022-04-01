@@ -1,4 +1,4 @@
-#include "opencv.hpp"
+#include "tiny_opencv.hpp"
 #include <string.h>
 
 namespace KCV {

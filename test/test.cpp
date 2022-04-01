@@ -310,7 +310,7 @@ int main(int argc, const char **argv)
 	unit_test_transport_matrix();
 	unit_test_inverse_matrix();
 #else
-	unit_test_karman_filter();
+	unit_test_kalman_filter();
 #endif
 
 	waitKey(0);

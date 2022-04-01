@@ -1,4 +1,4 @@
-#include "opencv.hpp"
+#include "tiny_opencv.hpp"
 
 void rgb_swap_order(uchar *src, uchar *dst, int width, int height)
 {

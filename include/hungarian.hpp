@@ -1,7 +1,7 @@
 #ifndef _HUNGARIAN_HPP_
 #define _HUNGARIAN_HPP_
 
-#include "opencv.hpp"
+#include "tiny_opencv.hpp"
 #include <iostream>
 
 using namespace std;

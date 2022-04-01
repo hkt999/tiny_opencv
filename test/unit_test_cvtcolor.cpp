@@ -1,6 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
-#include "opencv.hpp"
+#include "tiny_opencv.hpp"
 #include "unit_test.hpp"
 
 using namespace KCV;

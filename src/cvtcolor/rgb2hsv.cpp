@@ -1,4 +1,4 @@
-#include "opencv.hpp"
+#include "tiny_opencv.hpp"
 
 #ifndef MIN
 #define MIN(a,b) (((a)<(b))?(a):(b))

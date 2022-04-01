@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include "opencv.hpp"
+#include "tiny_opencv.hpp"
 
 namespace KCV {
 

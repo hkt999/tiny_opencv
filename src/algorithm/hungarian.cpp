@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <cfloat> // for DBL_MAX
 #include <cmath>  // for fabs()
-#include "opencv.hpp"
+#include "tiny_opencv.hpp"
 #include "hungarian.hpp"
 
 using namespace KCV;

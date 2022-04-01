@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
-#include "opencv.hpp"
+#include "tiny_opencv.hpp"
+#include <assert.h>
 
 namespace KCV {
 
@@ -11,7 +12,7 @@ Mat::Mat():data(0), rows(0), cols(0), type(0), ref(0)
 void Mat::createBuffer()
 {
     if (ref) {
-        if (--ref->count<=0) {
+        if (--ref->count <=0 ) {
             free(ref->data);
             free(ref);
             ref = 0;
@@ -21,6 +22,26 @@ void Mat::createBuffer()
     ref = (DataRef *)malloc(sizeof(DataRef));
     ref->count++;
     data = ref->data = malloc( cols * rows * elemSize());
+}
+
+void Mat::create(int _rows, int _cols, int _type)
+{
+    rows = _rows;
+    cols = _cols;
+    type = _type;
+
+    createBuffer();
+}
+
+void Mat::release()
+{
+    if (ref) {
+        if (--ref->count <= 0) {
+            free(ref->data);
+            free(ref);
+            ref = 0;
+        }
+    }
 }
 
 Mat::Mat(int rows, int cols, int type): rows(rows), cols(cols), type(type), ref(0)
@@ -128,6 +149,22 @@ Mat& Mat::operator+(const Mat &m) const
     return *t;
 }
 
+Mat &Mat::operator+=(const Mat &m)
+{
+    if ((cols != m.cols) || (rows != m.rows))
+        throw Exception("operator + dimention is mismatched");
+
+    if (type == CV_32F) {
+        float *dst = getData<float>(), *a = getData<float>(), *b = m.getData<float>();
+        int count = rows * cols;
+        while (count-->0) {
+            *dst++ = *a++ + *b++;
+        }
+    }
+
+    return *this;
+}
+
 Mat& Mat::operator-(const Mat &m) const
 {
     if ((cols != m.cols) || (rows != m.rows))
@@ -210,7 +247,7 @@ Mat &Mat::operator()( const Rect& roi )
     return *t;
 }
 
-template <typename _Tp> static void do_transport(Mat &mdst, Mat &msrc)
+template <typename _Tp> static void do_transpose(Mat &mdst, Mat &msrc)
 {
     for (int i=0; i<msrc.rows; i++) {
         for (int j=0; j<msrc.cols; j++) {
@@ -225,15 +262,15 @@ Mat& Mat::transpose()
     switch (type) {
         case CV_8U:
             t = new Mat( cols, rows, CV_8U);
-            do_transport<uchar>(*t, *this);
+            do_transpose<uchar>(*t, *this);
             break;
         case CV_32F:
             t = new Mat( cols, rows, CV_32F);
-            do_transport<float>(*t, *this);
+            do_transpose<float>(*t, *this);
             break;
         case CV_64F:
             t = new Mat( cols, rows, CV_64F);
-            do_transport<double>(*t, *this);
+            do_transpose<double>(*t, *this);
             break;
         default:
             throw Exception("not supporting data type for matrix transpose");
@@ -435,4 +472,102 @@ Mat& Mat::eye(int i_rows, int i_cols, int type)
     return t;
 }
 
-} // end of namespace
+void Mat::copyTo(Mat &dest)
+{
+    dest.release();
+    dest.create(rows, cols, type);
+    if (ref->data) {
+        memcpy(dest.ref->data, ref->data, cols * rows * elemSize());
+    }
+}
+
+void setIdentity(Mat &mat) 
+{
+    assert(mat.ref != 0);
+    assert(mat.ref->data != 0);
+
+    memset(mat.ref->data, 0, mat.cols * mat.rows * mat.elemSize());
+    int loop = mat.rows > mat.cols ? mat.cols : mat.rows;
+    for (int i=0; i<loop; i++) {
+        void *t = (uint8_t *) mat.ref->data + (i * mat.cols + i) * mat.elemSize();
+        switch (mat.type) {
+        case CV_8U: 
+            *((int8_t *)t) = 1;
+            break;
+
+        case CV_32F:
+            *((float *)t) = 1.0;
+            break;
+
+        case CV_64F:
+            *((double *)t) = 1.0;
+            break;
+        }
+    }
+}
+
+template <typename T> static void pack_data(void *dest, double *src, int count)
+{
+    T *d = (T *)dest;
+    for (int i=0; i<count; i++) {
+        *d++ = (T)(*src++);
+    }
+}
+
+template <typename T> static void copy_data(void *dest, void *src) 
+{
+    *((T *)dest) = *((T *)src);
+}
+
+
+typedef void (*copy_data_f)(void *dest, void *src);
+typedef void (*pack_data_f)(void *dest, double *src, int count);
+
+void setIdentity(Mat &mat, Scalar sv)
+{
+    uint8_t data[8*8];
+    int numCol = (mat.type >> 3) + 1;
+    assert(numCol <= 4);
+
+    int d_type = mat.type & 0x7;
+
+    assert(mat.ref != 0);
+    assert(mat.ref->data != 0);
+
+    // clear the matrix reset to 0
+    memset(mat.ref->data, 0, mat.cols * mat.rows * mat.elemSize());
+    static copy_data_f c[] = {
+        copy_data<uint8_t>,
+        copy_data<int8_t>,
+        copy_data<uint16_t>,
+        copy_data<int16_t>,
+        copy_data<int32_t>,
+        copy_data<float>,
+        copy_data<double>,
+        copy_data<double>
+    };
+
+    static pack_data_f p[] = {
+        pack_data<uint8_t>,
+        pack_data<int8_t>,
+        pack_data<uint16_t>,
+        pack_data<int16_t>,
+        pack_data<int32_t>,
+        pack_data<float>,
+        pack_data<double>,
+        pack_data<double>
+    };
+
+    pack_data_f pf = p[d_type];
+    pf(data, sv.v, sv.count);
+
+    copy_data_f cf = c[d_type];
+
+    int loop = mat.rows > mat.cols ? mat.cols : mat.rows;
+    for (int i=0; i<loop; i++) {
+        void *t = (uint8_t *) mat.ref->data + (i * mat.cols + i) * mat.elemSize();
+    }
+
+}
+
+} // end of namespace (KCV)
