@@ -66,7 +66,8 @@ add_executable(
 	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_cvtcolor.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_filter.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_matrix.cpp
-	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_kalman.cpp
+	#${CMAKE_CURRENT_LIST_DIR}/test/unit_test_kalman.cpp
+	${CMAKE_CURRENT_LIST_DIR}/test/realcv_kalman.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/util.cpp
 	#${CMAKE_CURRENT_LIST_DIR}/test/test.cpp
 )

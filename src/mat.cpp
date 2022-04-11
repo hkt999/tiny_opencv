@@ -419,6 +419,7 @@ Mat& Mat::inverse()
         }
         dst_line++;
     }
+
     return *inv;
 }
 
