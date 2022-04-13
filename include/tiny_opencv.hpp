@@ -226,6 +226,10 @@ class Mat
 			_Tp *d = (_Tp *)data;
 		    return d[cols * i_row + i_col];
 		}
+		template <typename _Tp> inline _Tp& at(int idx) const {
+			_Tp *d = (_Tp *)data;
+			return d[idx];
+		}
 		Mat& transpose();
 		inline Mat &t() { return transpose(); }
 
@@ -299,6 +303,9 @@ void medianBlur(const Mat src, Mat &dst, int ksize);
 void filter2D(const Mat src, Mat &dst, int ddepth, Mat &kernel);
 void equalizeHist(const Mat src, Mat &dst);
 Mat getRotationMatrix2D(Point2f center, double angle, double scale);
+
+// utilities
+void randn(Mat &dst, float mean, float sigma);
 
 }; // end of namespace
 

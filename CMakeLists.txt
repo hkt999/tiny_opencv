@@ -35,6 +35,7 @@ add_library(
 	${CMAKE_CURRENT_LIST_DIR}/src/mat.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/opencv.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/resize.cpp
+	${CMAKE_CURRENT_LIST_DIR}/src/randn.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/3rd_party/quirc/quirc.h
 	${CMAKE_CURRENT_LIST_DIR}/src/3rd_party/quirc/quirc_internal.h
 	${CMAKE_CURRENT_LIST_DIR}/src/3rd_party/quirc/decode.c
@@ -66,8 +67,7 @@ add_executable(
 	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_cvtcolor.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_filter.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_matrix.cpp
-	#${CMAKE_CURRENT_LIST_DIR}/test/unit_test_kalman.cpp
-	${CMAKE_CURRENT_LIST_DIR}/test/realcv_kalman.cpp
+	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_kalman.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/util.cpp
 	#${CMAKE_CURRENT_LIST_DIR}/test/test.cpp
 )
