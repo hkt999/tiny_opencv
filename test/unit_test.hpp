@@ -46,9 +46,14 @@ void *unit_test_crop_c3(void *data, int width, int height, int roi_x, int roi_y,
 
 // matrix operation test functions
 int unit_test_inverse_matrix();
-int unit_test_transport_matrix();
+int unit_test_transpose_matrix();
 
-// matrix test kalman filter
-int unit_test_kalman_filter();
+typedef struct _point_t {
+    int x;
+    int y;
+} point_t;
+
+typedef void (*draw_frame_t)(void *data, point_t observed, point_t predicted, point_t actual_to);
+void unit_test_kalman_filter(draw_frame_t func, void *data);
 
 #endif

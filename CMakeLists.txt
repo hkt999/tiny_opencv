@@ -69,7 +69,7 @@ add_executable(
 	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_matrix.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_kalman.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/util.cpp
-	#${CMAKE_CURRENT_LIST_DIR}/test/test.cpp
+	${CMAKE_CURRENT_LIST_DIR}/test/test.cpp
 )
 
 find_package(OpenCV REQUIRED)

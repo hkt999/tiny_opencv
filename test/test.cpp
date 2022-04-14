@@ -275,17 +275,25 @@ void __test(Mat &img)
 }
 #endif
 
-int main(int argc, const char **argv)
+// Kalman tester callback for drawing points
+void cv_draw_frame(void *data, point_t observed, point_t predicted, point_t actual_to)
+{
+	printf("cb observed(%d, %d), predicted(%d, %d), actual_to(%d, %d)\n",
+		observed.x, observed.y,
+		predicted.x, predicted.y,
+		actual_to.x, actual_to.y);
+}
+
+void static_test()
 {
 	Mat img = imread("lena.jpg", cv::IMREAD_COLOR);
 	if (img.empty()) {
 		printf("image cannot be loaded...\n");
-		return -1;
+		exit(1);
 	}
 	cout << "img:type=" << color2str(img.type()) << endl;
 	imshow("Original Image", img);
 
-#if 0
 	mat_test_bgr_gray(img);
 	mat_test_bgr_yuv(img);
 	mat_test_rgb_gray(img);
@@ -307,14 +315,13 @@ int main(int argc, const char **argv)
 	mat_test_resize_c3(img);
 	mat_test_crop_c1(img);
 	mat_test_crop_c3(img);
-	unit_test_transport_matrix();
+	unit_test_transpose_matrix();
 	unit_test_inverse_matrix();
-#else
-	unit_test_kalman_filter();
-#endif
-
 	waitKey(0);
 	destroyAllWindows();
-
-	return 0;
+}
+int main(int argc, const char **argv)
+{
+	//static_test();
+	unit_test_kalman_filter(cv_draw_frame, 0);
 }
