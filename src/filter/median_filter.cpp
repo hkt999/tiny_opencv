@@ -25,7 +25,7 @@ void medianBlur(const Mat src, Mat &dst, int ksize)
     uchar *m = (uchar *)malloc( total * chans );
 
     // for normal case
-    uchar *wline = (uchar *)dst.data + (pad * src.cols + pad) * chans;
+    uchar *wline = (uchar *)dst.ref->data + (pad * src.cols + pad) * chans;
     int line_bytes = dst.cols * chans;
     for (int y=pad; y<src.rows-pad; y++) {
         uchar *w = wline;
@@ -33,7 +33,7 @@ void medianBlur(const Mat src, Mat &dst, int ksize)
         uchar **pb = (uchar **)malloc(chans*sizeof(uchar **));
         // run the kernel
         for (int x=pad; x<src.cols-pad; x++) {
-            uchar *rline = (uchar *)src.data + ((y-pad) * src.cols + x-pad) * chans;
+            uchar *rline = (uchar *)src.ref->data + ((y-pad) * src.cols + x-pad) * chans;
 
             // reset color space pointer
             for (int i=0; i<chans; i++) {

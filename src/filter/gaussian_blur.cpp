@@ -44,7 +44,7 @@ void gaussianBlur(const Mat src, Mat &dst, Size ksize, double sigmaX, double sig
 
     /* build kernel */
     Mat kernel(ksize.width, ksize.height, CV_32FC1);
-    create_gaussian_matrix((float *)kernel.data, ksize.width, ksize.height, sigmaX);
+    create_gaussian_matrix((float *)kernel.ref->data, ksize.width, ksize.height, sigmaX);
     filter2D(src, dst, -1, kernel);
 }
 

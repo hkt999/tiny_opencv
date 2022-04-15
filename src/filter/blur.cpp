@@ -49,8 +49,8 @@ static void boundary(const Mat &src, Mat &dst, int h_pad, int v_pad, int chans, 
     }
 
     int line_bytes = dst.cols * chans;
-    rline = (uchar *)src.data + (start_y * src.cols) * chans;
-    wline = (uchar *)dst.data + (start_y * dst.cols) * chans;
+    rline = (uchar *)src.ref->data + (start_y * src.cols) * chans;
+    wline = (uchar *)dst.ref->data + (start_y * dst.cols) * chans;
     for (int y=start_y; y<end_y; y++) {
         uchar *w_local = wline + start_x * chans;
         for (int x=start_x; x<end_x; x++) {
@@ -110,14 +110,14 @@ static void do_blur(const Mat src, Mat &dst, Size ksize, int chans)
     int total = ksize.width * ksize.height;
 
     // for normal case
-    uchar *wline = (uchar *)dst.data + (v_pad * src.cols + h_pad) * chans;
+    uchar *wline = (uchar *)dst.ref->data + (v_pad * src.cols + h_pad) * chans;
     int line_bytes = dst.cols * chans;
     for (int y=v_pad; y<src.rows-v_pad; y++) {
         uchar *w = wline;
         for (int x=h_pad; x<src.cols-h_pad; x++) {
             for (int c=0; c<chans; c++)
                 value[c] = 0;
-            uchar *rline = (uchar *)src.data + ((y-v_pad) * src.cols + x - h_pad) * chans;
+            uchar *rline = (uchar *)src.ref->data + ((y-v_pad) * src.cols + x - h_pad) * chans;
             for (int by=-v_pad; by<=v_pad; by++) {
                 uchar *r = rline;
                 for (int bx=-h_pad; bx<=h_pad; bx++) {

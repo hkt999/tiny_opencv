@@ -189,7 +189,6 @@ class Mat
 		int rows;
 		int cols;
 		int type;
-		void *data;
 		DataRef *ref;
 
 	public:
@@ -216,19 +215,22 @@ class Mat
 		void createBuffer();
 		void create(int rows, int cols, int type);
 		template <typename _Tp> inline _Tp *getData() const {
-			return (_Tp *)data;
+			return (_Tp *)ref->data;
 		}
 		template <typename _Tp> inline _Tp *getData(int i_row, int i_col) const {
-			_Tp *d = (_Tp *)data;
+			_Tp *d = (_Tp *)ref->data;
 			return d + (cols * i_row + i_col);
 		}
 		template <typename _Tp> inline _Tp& at(int i_row, int i_col) const {
-			_Tp *d = (_Tp *)data;
+			_Tp *d = (_Tp *)ref->data;
 		    return d[cols * i_row + i_col];
 		}
 		template <typename _Tp> inline _Tp& at(int idx) const {
-			_Tp *d = (_Tp *)data;
+			_Tp *d = (_Tp *)ref->data;
 			return d[idx];
+		}
+		void *ptr() const {
+			return (void *)ref->data;
 		}
 		Mat& transpose();
 		inline Mat &t() { return transpose(); }
@@ -244,7 +246,7 @@ class Mat
 
 	public:
 		// member functions
-		const inline bool empty() { return (data == 0) || ((cols == 0) && (rows==0)); }
+		const inline bool empty() { return (ref->data == 0) || ((cols == 0) && (rows==0)); }
 		inline int channels() { return (type/8)+1; }
 		inline int depth() { return (type%8); }
 		inline int dims() { return 2; } // only supports 2 channels (row/col)
@@ -303,6 +305,7 @@ void medianBlur(const Mat src, Mat &dst, int ksize);
 void filter2D(const Mat src, Mat &dst, int ddepth, Mat &kernel);
 void equalizeHist(const Mat src, Mat &dst);
 Mat getRotationMatrix2D(Point2f center, double angle, double scale);
+Mat getAffineTransform(const Point2f src[], const Point2f dst[]);
 
 // utilities
 void randn(Mat &dst, float mean, float sigma);

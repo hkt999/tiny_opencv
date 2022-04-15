@@ -33,7 +33,7 @@ static void apply_bilateral_filter_c1(Mat source, Mat &filteredImage, int x, int
         }
     }
     iFiltered = iFiltered / wP;
-    uchar *p = (uchar *)filteredImage.data;
+    uchar *p = (uchar *)filteredImage.ref->data;
     p += y * filteredImage.cols + x;
     *p = (uchar)iFiltered;
 }
@@ -53,8 +53,8 @@ static void apply_bilateral_filter_c3(Mat source, Mat &filteredImage, int x, int
         for(int j = 0; j < diameter; j++) {
             neighbor_x = x - (half - i);
             neighbor_y = y - (half - j);
-            uchar *addr_neighbor = (uchar *)source.data + (neighbor_y * source.cols + neighbor_x) * 3;
-            uchar *addr_src = (uchar *)source.data + (y * source.cols + x) * 3;
+            uchar *addr_neighbor = (uchar *)source.ref->data + (neighbor_y * source.cols + neighbor_x) * 3;
+            uchar *addr_src = (uchar *)source.ref->data + (y * source.cols + x) * 3;
             double gi_c1 = gaussian(*addr_neighbor++ - *addr_src++, sigmaI);
             double gi_c2 = gaussian(*addr_neighbor++ - *addr_src++, sigmaI);
             double gi_c3 = gaussian(*addr_neighbor++ - *addr_src++, sigmaI);
@@ -62,7 +62,7 @@ static void apply_bilateral_filter_c3(Mat source, Mat &filteredImage, int x, int
             double w1 = gi_c1 * gs;
             double w2 = gi_c2 * gs;
             double w3 = gi_c3 * gs;
-            addr_src = (uchar *)source.data + (y * source.cols + x) * 3;
+            addr_src = (uchar *)source.ref->data + (y * source.cols + x) * 3;
             iFiltered_c1 += *addr_src++ * w1;
             iFiltered_c2 += *addr_src++ * w2;
             iFiltered_c3 += *addr_src++ * w3;
@@ -75,7 +75,7 @@ static void apply_bilateral_filter_c3(Mat source, Mat &filteredImage, int x, int
     iFiltered_c2 = iFiltered_c2 / wP2;
     iFiltered_c3 = iFiltered_c3 / wP3;
 
-    uchar *p = (uchar *)filteredImage.data;
+    uchar *p = (uchar *)filteredImage.ref->data;
     p += (y * filteredImage.cols + x) * 3;
     *p++ = (uchar)iFiltered_c1;
     *p++ = (uchar)iFiltered_c2;
@@ -126,7 +126,7 @@ void bilateralFilter(const Mat src, Mat &dst, int d, double sigmaColor, double s
             dst.rows = dst.cols = 0;
             if (--dst.ref->count <= 0) {
                 free(dst.ref->data);
-                dst.data = 0;
+                dst.ref->data = 0;
                 free(dst.ref);
                 dst.ref = 0;
             }

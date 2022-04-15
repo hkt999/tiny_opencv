@@ -11,7 +11,7 @@ void equalizeHist(const Mat src, Mat &dst)
     memset(hist, 0, sizeof(hist));
 
     int count = src.cols * src.rows;
-    uchar *p = (uchar *)src.data;
+    uchar *p = (uchar *)src.ref->data;
     while (count-->0) {
         hist[*p++]++;
     }
@@ -34,8 +34,8 @@ void equalizeHist(const Mat src, Mat &dst)
     dst.createBuffer();
 
     count = src.cols * src.rows;
-    p = (uchar *)src.data;
-    uchar *w = (uchar *)dst.data;
+    p = (uchar *)src.ref->data;
+    uchar *w = (uchar *)dst.ref->data;
     while (count-->0) {
         *w++ = hist[*p++];
     }

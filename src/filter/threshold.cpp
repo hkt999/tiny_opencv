@@ -12,8 +12,8 @@ void threshold(const Mat in, Mat &out, double thresh, double maxval, int type)
     out.type = in.type;
     out.createBuffer();
     int counter = out.rows * out.cols;
-    uchar *src = (uchar *)in.data;
-    uchar *dst = (uchar *)out.data;
+    uchar *src = (uchar *)in.ref->data;
+    uchar *dst = (uchar *)out.ref->data;
     uchar th8 = (uchar) thresh;
     uchar max8 = (uchar) maxval;
     switch (type) {

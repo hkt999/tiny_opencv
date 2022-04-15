@@ -13,13 +13,13 @@ void clear_boundary(Mat &dst, Size ksize)
     int side_bytes = h_pad * chans;
 
     // top
-    memset(dst.data, 0, line_bytes * v_pad);
+    memset(dst.ref->data, 0, line_bytes * v_pad);
 
     // bottom
-    memset((uchar *)dst.data + line_bytes * (dst.rows-v_pad), 0, line_bytes * v_pad);
+    memset((uchar *)dst.ref->data + line_bytes * (dst.rows-v_pad), 0, line_bytes * v_pad);
 
     // left & right
-    uchar *wline_left = (uchar *)dst.data + line_bytes * v_pad;
+    uchar *wline_left = (uchar *)dst.ref->data + line_bytes * v_pad;
     uchar *wline_right = wline_left + line_bytes - side_bytes;
     for (int y=v_pad; y<dst.rows-v_pad; y++) {
         memset(wline_left, 0, side_bytes);

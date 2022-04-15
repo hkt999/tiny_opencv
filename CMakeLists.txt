@@ -25,6 +25,7 @@ add_library(
 	${CMAKE_CURRENT_LIST_DIR}/src/algorithm/kalman_filter.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/algorithm/hungarian.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/algorithm/get_rotation_matrix_2d.cpp
+	${CMAKE_CURRENT_LIST_DIR}/src/algorithm/get_affine_transform.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/utils/split.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/utils/merge.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/cvtcolor/rgb2yuv.cpp

@@ -5,7 +5,7 @@
 
 namespace KCV {
 
-Mat::Mat():data(0), rows(0), cols(0), type(0), ref(0)
+Mat::Mat(): rows(0), cols(0), type(0), ref(0)
 {
 }
 
@@ -21,7 +21,7 @@ void Mat::createBuffer()
 
     ref = (DataRef *)malloc(sizeof(DataRef));
     ref->count++;
-    data = ref->data = malloc( cols * rows * elemSize());
+    ref->data = malloc( cols * rows * elemSize());
 }
 
 void Mat::create(int _rows, int _cols, int _type)
@@ -54,16 +54,23 @@ Mat::Mat(Size size, int type): rows(size.height), cols(size.width), type(type), 
     createBuffer();
 }
 
-Mat::Mat(const Mat &m): rows(m.rows), cols(m.cols), type(m.type), data(m.data), ref(m.ref)
+Mat::Mat(const Mat &m): rows(m.rows), cols(m.cols), type(m.type), ref(m.ref)
 {
+    ref->count++;
 }
 
-Mat::Mat(int rows, int cols, int type, void *data): rows(rows), cols(cols), type(type), data((uchar *)data), ref(0)
+Mat::Mat(int rows, int cols, int type, void *data): rows(rows), cols(cols), type(type)
 {
+    ref = (DataRef *)malloc(sizeof(DataRef));
+    ref->count = 1;
+    ref->data = data;
 }
 
-Mat::Mat(Size size, int type, void *data): rows(size.height), cols(size.width), type(type), data((uchar *)data), ref(0)
+Mat::Mat(Size size, int type, void *data): rows(size.height), cols(size.width), type(type)
 {
+    ref = (DataRef *)malloc(sizeof(DataRef));
+    ref->count = 1;
+    ref->data = data;
 }
 
 template <typename _Tp> static void copyBlock(Mat &mdst, const Mat &msrc, const Rect2i &roi)
@@ -121,7 +128,6 @@ Mat& Mat::operator=(const Mat& m)
     rows = m.rows;
     cols = m.cols;
     type = m.type;
-    data = m.data;
     ref = m.ref;
     if (ref) {
         ref->count++;
@@ -233,8 +239,8 @@ Mat &Mat::operator()( const Rect& roi )
     int src_line_bytes = cols * elemSize();
     int dst_line_bytes = t->cols * t->elemSize();
     int h = roi.height;
-    uchar *src = (uchar *)data + (roi.y * cols + roi.x) * elemSize();
-    uchar *dst = (uchar *)t->data;
+    uchar *src = (uchar *)ref->data + (roi.y * cols + roi.x) * elemSize();
+    uchar *dst = (uchar *)t->ref->data;
     while (h-->0) {
         memcpy(dst, src, dst_line_bytes);
         src += src_line_bytes;
@@ -318,7 +324,7 @@ float Mat::determinant()
             float *src_start_line = det_src + cols;
             for(int k = 0; k < DIM; k++) {
                 float *src = src_start_line;
-                float *dst = (float *)temp.data;
+                float *dst = (float *)temp.ref->data;
                 for(int i = 1; i < DIM; i++) {
                     for(int j = 0; j < DIM; j++) {
                         if(k == j) {
@@ -427,7 +433,7 @@ Mat& Mat::zeros(int cols, int rows, int type)
 {
     Mat *t = new Mat(cols, rows, type);
     t->createBuffer();
-    bzero(t->data, cols * rows * t->elemSize());
+    bzero(t->ref->data, cols * rows * t->elemSize());
 
     return *t;
 }

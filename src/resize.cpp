@@ -51,12 +51,12 @@ void resize(const Mat src, Mat &dst, Size size, float h_ratio, float v_ratio, in
             switch (src.type) {
                 case CV_8UC1:
                     dst.createBuffer();
-                    nearest_resize( (cv8uc1_t *) src.data, src.cols, src.rows, (cv8uc1_t *)dst.data, size.width, size.height);
+                    nearest_resize( (cv8uc1_t *) src.ref->data, src.cols, src.rows, (cv8uc1_t *)dst.ref->data, size.width, size.height);
                     break;
 
                 case CV_8UC3:
                     dst.createBuffer();
-                    nearest_resize( (cv8uc3_t *) src.data, src.cols, src.rows, (cv8uc3_t *)dst.data, size.width, size.height);
+                    nearest_resize( (cv8uc3_t *) src.ref->data, src.cols, src.rows, (cv8uc3_t *)dst.ref->data, size.width, size.height);
                     break;
             }
             break;
@@ -67,7 +67,7 @@ void resize(const Mat src, Mat &dst, Size size, float h_ratio, float v_ratio, in
         case INTER_CUBIC:
             break;
     }
-    if (dst.data == 0) {
+    if (dst.ref->data == 0) {
         dst.cols = dst.rows = 0;
     }
 }

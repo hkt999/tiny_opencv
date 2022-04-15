@@ -16,13 +16,13 @@ static void make_fix_point_kernel( const Mat kernel, Mat &fix_point_kernel)
     fix_point_kernel.createBuffer();
 
     int kernel_size = kernel.cols * kernel.rows;
-    int32_t *fixp_kernel = (int32_t *)fix_point_kernel.data;
+    int32_t *fixp_kernel = (int32_t *)fix_point_kernel.ref->data;
     int i;
 
     switch (kernel.type) {
         case CV_8UC1:
             {
-                uchar *uc_kernel = (uchar *) kernel.data;
+                uchar *uc_kernel = (uchar *) kernel.ref->data;
                 for (int i=0; i<kernel_size; i++) {
                     fixp_kernel[i] = ((int32_t)uc_kernel[i]) * MUL;
                 }
@@ -31,7 +31,7 @@ static void make_fix_point_kernel( const Mat kernel, Mat &fix_point_kernel)
 
         case CV_32SC1:
             {
-                int32_t *i32_kernel = (int32_t *) kernel.data;
+                int32_t *i32_kernel = (int32_t *) kernel.ref->data;
                 for (int i=0; i<kernel_size; i++) {
                     fixp_kernel[i] = (int32_t)i32_kernel[i];
                 }
@@ -40,7 +40,7 @@ static void make_fix_point_kernel( const Mat kernel, Mat &fix_point_kernel)
 
         case CV_32FC1:
             {
-                float *fp_kernel = (float *) kernel.data;
+                float *fp_kernel = (float *) kernel.ref->data;
                 for (i=0; i<kernel_size; i++) {
                     fixp_kernel[i] = (int32_t)(fp_kernel[i] * (float) MUL);
                 }
@@ -49,7 +49,7 @@ static void make_fix_point_kernel( const Mat kernel, Mat &fix_point_kernel)
 
         case CV_64FC1:
             {
-                double *dp_kernel = (double *)kernel.data;
+                double *dp_kernel = (double *)kernel.ref->data;
                 for (i=0; i<kernel_size; i++) {
                     fixp_kernel[i] = (int32_t)(dp_kernel[i] * (double) MUL);
                 }
@@ -74,8 +74,8 @@ static void do_convolution(const Mat src, Mat &dst, Mat &kernel, int chans)
     dst.type = src.type;
     dst.createBuffer();
 
-    int32_t *k_val = (int32_t *)fix_point_kernel.data;
-    uchar *wline = (uchar *)dst.data + (v_pad * src.cols + h_pad) * chans;
+    int32_t *k_val = (int32_t *)fix_point_kernel.ref->data;
+    uchar *wline = (uchar *)dst.ref->data + (v_pad * src.cols + h_pad) * chans;
     int line_bytes = dst.cols * chans;
     for (int y=v_pad; y<src.rows-v_pad; y++) {
         uchar *w = wline;
@@ -83,7 +83,7 @@ static void do_convolution(const Mat src, Mat &dst, Mat &kernel, int chans)
             for (int c=0; c<chans; c++)
                 value[c] = 0;
 
-            uchar *rline = (uchar *)src.data + ((y-v_pad) * src.cols + x - h_pad) * chans;
+            uchar *rline = (uchar *)src.ref->data + ((y-v_pad) * src.cols + x - h_pad) * chans;
             // covolution kernel
             int32_t *k_idx = k_val;
             for (int by=-v_pad; by<=v_pad; by++) {

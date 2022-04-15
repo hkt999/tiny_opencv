@@ -83,79 +83,79 @@ void cvtColor(const Mat src, Mat &dst , int code)
     	case CV_BGR2GRAY:
             dst.type = CV_8UC1;
             dst.createBuffer();
-            do_bgr2gray(src.cols, src.rows, (uchar *)src.data, (uchar *)dst.data);
+            do_bgr2gray(src.cols, src.rows, (uchar *)src.ref->data, (uchar *)dst.ref->data);
             break;
 
         case CV_RGB2GRAY:
             dst.type = CV_8UC1;
             dst.createBuffer();
-            do_rgb2gray(src.cols, src.rows, (uchar *)src.data, (uchar *)dst.data);
+            do_rgb2gray(src.cols, src.rows, (uchar *)src.ref->data, (uchar *)dst.ref->data);
             break;
 
 	    case CV_GRAY2BGR:
         case CV_GRAY2RGB:
             dst.type = CV_8UC3;
             dst.createBuffer();
-            do_gray2bgr_rgb(src.cols, src.rows, (uchar *)src.data, (uchar *)dst.data);
+            do_gray2bgr_rgb(src.cols, src.rows, (uchar *)src.ref->data, (uchar *)dst.ref->data);
             break;
 
 	    case CV_BGR2YUV_I420:
             dst.type = CV_8UC1;
             dst.rows = (src.rows * 3) / 2;
             dst.createBuffer();
-            do_bgr2yuv_i420((uchar *)src.data, (uchar *)dst.data, src.cols, src.rows);
+            do_bgr2yuv_i420((uchar *)src.ref->data, (uchar *)dst.ref->data, src.cols, src.rows);
             break;
 
         case CV_RGB2YUV_I420:
             dst.type = CV_8UC1;
             dst.rows = (src.rows * 3) / 2;
             dst.createBuffer();
-            do_rgb2yuv_i420((uchar *)src.data, (uchar *)dst.data, src.cols, src.rows);
+            do_rgb2yuv_i420((uchar *)src.ref->data, (uchar *)dst.ref->data, src.cols, src.rows);
             break;
 
 	    case CV_YUV2BGR_I420:
             dst.type = CV_8UC3;
             dst.rows = (src.rows * 2) / 3; 
             dst.createBuffer();
-            do_yuv2bgr_i420((uchar *)src.data, (uchar *)dst.data, src.cols, dst.rows);
+            do_yuv2bgr_i420((uchar *)src.ref->data, (uchar *)dst.ref->data, src.cols, dst.rows);
             break;
 
         case CV_YUV2RGB_I420:
             dst.type = CV_8UC3;
             dst.rows = (src.rows * 2) / 3; 
             dst.createBuffer();
-            do_yuv2rgb_i420((uchar *)src.data, (uchar *)dst.data, src.cols, dst.rows);
+            do_yuv2rgb_i420((uchar *)src.ref->data, (uchar *)dst.ref->data, src.cols, dst.rows);
             break;
 
         case CV_RGB2BGR:
         case CV_BGR2RGB:
             dst.type = CV_8UC3;
             dst.createBuffer();
-            rgb_swap_order((uchar *)src.data, (uchar *)dst.data, dst.cols, dst.rows);
+            rgb_swap_order((uchar *)src.ref->data, (uchar *)dst.ref->data, dst.cols, dst.rows);
             break;
 
 	    case CV_BGR2HSV:
             dst.type = CV_8UC3;
             dst.createBuffer();
-            rgb2hsv((uchar *)src.data, (uchar *)dst.data, dst.cols, dst.rows);
+            rgb2hsv((uchar *)src.ref->data, (uchar *)dst.ref->data, dst.cols, dst.rows);
             break;
 
     	case CV_RGB2HSV:
             dst.type = CV_8UC3;
             dst.createBuffer();
-            bgr2hsv((uchar *)src.data, (uchar *)dst.data, dst.cols, dst.rows);
+            bgr2hsv((uchar *)src.ref->data, (uchar *)dst.ref->data, dst.cols, dst.rows);
             break;
 
 	    case CV_HSV2BGR:
             dst.type = CV_8UC3;
             dst.createBuffer();
-            bgr2hsv((uchar *)src.data, (uchar *)dst.data, dst.cols, dst.rows);
+            bgr2hsv((uchar *)src.ref->data, (uchar *)dst.ref->data, dst.cols, dst.rows);
             break;
 
 	    case CV_HSV2RGB:
             dst.type = CV_8UC3;
             dst.createBuffer();
-            hsv2rgb((uchar *)src.data, (uchar *)dst.data, dst.cols, dst.rows);
+            hsv2rgb((uchar *)src.ref->data, (uchar *)dst.ref->data, dst.cols, dst.rows);
             break;
 
         default:

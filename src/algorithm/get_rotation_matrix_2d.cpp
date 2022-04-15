@@ -12,7 +12,7 @@ Mat getRotationMatrix2D(Point2f center, double angle, double scale)
 
 	Mat M(2, 3, CV_32FC1);
 
-	float *fdata = (float *)M.data;
+	float *fdata = (float *)M.ref->data;
 	*fdata++ = alpha;
 	*fdata++ = beta;
 	*fdata++ = (1-alpha) * center.x - beta * center.y;
