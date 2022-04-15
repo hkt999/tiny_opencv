@@ -62,14 +62,14 @@ Mat::Mat(const Mat &m): rows(m.rows), cols(m.cols), type(m.type), ref(m.ref)
 Mat::Mat(int rows, int cols, int type, void *data): rows(rows), cols(cols), type(type)
 {
     ref = (DataRef *)malloc(sizeof(DataRef));
-    ref->count = 1;
+    ref->count = 2; // default reference count
     ref->data = data;
 }
 
 Mat::Mat(Size size, int type, void *data): rows(size.height), cols(size.width), type(type)
 {
     ref = (DataRef *)malloc(sizeof(DataRef));
-    ref->count = 1;
+    ref->count = 2; // default reference count
     ref->data = data;
 }
 

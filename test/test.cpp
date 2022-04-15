@@ -286,7 +286,7 @@ void cv_draw_frame(void *data, point_t observed, point_t predicted, point_t actu
 
 void static_test()
 {
-	Mat img = imread("lena.jpg", cv::IMREAD_COLOR);
+	Mat img = imread("test/lena.jpg", cv::IMREAD_COLOR);
 	if (img.empty()) {
 		printf("image cannot be loaded...\n");
 		exit(1);
@@ -322,6 +322,6 @@ void static_test()
 }
 int main(int argc, const char **argv)
 {
-	//static_test();
-	unit_test_kalman_filter(cv_draw_frame, 0);
+	static_test();
+	//unit_test_kalman_filter(cv_draw_frame, 0);
 }
