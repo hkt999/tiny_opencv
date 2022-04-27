@@ -221,7 +221,12 @@ Mat& Mat::operator*(const Mat& m) const
 Mat& Mat::clone()
 {
     Mat *m = new Mat(rows, cols, type);
+
+    // create buffer
     m->createBuffer();
+
+    // copy data
+    memcpy(m->ptr(), ptr(), cols * rows * elemSize());
 
     return *m;
 }
@@ -570,14 +575,91 @@ void setIdentity(Mat &mat, Scalar sv)
     int loop = mat.rows > mat.cols ? mat.cols : mat.rows;
     for (int i=0; i<loop; i++) {
         void *t = (uint8_t *) mat.ref->data + (i * mat.cols + i) * mat.elemSize();
+        cf(t, data);
     }
 }
 
 #include <stdio.h>
+static void print8uc1(int rows, int cols, uint8_t *data)
+{ 
+    printf("CV_8UC1\n");
+    for (int r = 0; r < rows; r++) {
+        printf("rows (%d):", r);
+        for (int c = 0; c < cols; c++) {
+            if (c<cols-1) {
+                printf("%4d,", *data++);
+            } else {
+                printf("%4d", *data++);
+            }
+        }
+        printf("\n");
+    }
+}
+
+static void print8uc3(int rows, int cols, uint8_t *data)
+{
+    printf("CV_8UC3\n");
+    for (int r = 0; r < rows; r++) {
+        printf("rows (%d):", r);
+        for (int c = 0; c < cols; c++) {
+            printf("(%4d, ", *data++);
+            printf("%4d, ", *data++);
+            printf("%4d) ", *data++);
+        }
+        printf("\n");
+    }
+}
+
+static void print32f(int rows, int cols, float *data)
+{
+    printf("\tCV_F32\n");
+    for (int r = 0; r < rows; r++) {
+        printf("\trows (%d):", r);
+        for (int c = 0; c < cols; c++) {
+            if (c<cols-1) {
+                printf("%f, ", *data++);
+            } else {
+                printf("%f", *data++);
+            }
+        }
+        printf("\n");
+    }
+
+}
+
+static void print64f(int rows, int cols, double *data)
+{
+    printf("CV_F64\n");
+    for (int r = 0; r < rows; r++) {
+        printf("rows %3d:", r);
+        for (int c = 0; c < cols; c++) {
+            printf("%f, ", *data++);
+        }
+        printf("\n");
+    }
+
+}
+
 void Mat::print(const char *name)
 {
     printf("matrix name: %s\n", name);
     printf("    rows=%d, cols=%d\n", rows, cols);
+    switch (type) {
+        case CV_8UC1:
+            print8uc1(rows, cols, getData<uint8_t>());
+            break;
+        case CV_8UC3:
+            print8uc3(rows, cols, getData<uint8_t>());
+            break;
+        case CV_32F:
+            print32f(rows, cols, getData<float>());
+            break;
+        case CV_64F:
+            print64f(rows, cols, getData<double>());
+            break;
+        default:
+            break;
+    }
 }
 
 } // end of namespace (KCV)

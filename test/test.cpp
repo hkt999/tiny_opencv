@@ -266,22 +266,50 @@ void mat_test_crop_c3(Mat &img)
 	free(c3);
 }
 
-#if 0
-void __test(Mat &img)
+typedef struct kalman_test_t_ {
+    Mat *img;
+	int inited;
+	point_t pos;
+} kalman_test_t;
+
+point_t cv_get_mouse(void *data)
 {
-	Mat m = img;
-	//imshow("No", m);
-	printf("%d\n", m.type());
+	kalman_test_t *obj = (kalman_test_t *)data;
+	return obj->pos;
 }
-#endif
+
+void mouseHandler( int e, int x, int y, int d, void *ptr)
+{
+	kalman_test_t *p = (kalman_test_t *)ptr;
+	p->pos.x = x;
+	p->pos.y = y;
+}
 
 // Kalman tester callback for drawing points
 void cv_draw_frame(void *data, point_t observed, point_t predicted, point_t actual_to)
 {
+	kalman_test_t *obj = (kalman_test_t *)data;
 	printf("cb observed(%d, %d), predicted(%d, %d), actual_to(%d, %d)\n",
 		observed.x, observed.y,
 		predicted.x, predicted.y,
 		actual_to.x, actual_to.y);
+
+	if (obj->inited == 0) {
+		obj->img = new Mat(512, 512, CV_8UC3);
+		obj->inited = 1;
+		namedWindow("Kalman");
+	    setMouseCallback("Kalman", mouseHandler, obj); 
+	}
+
+	memset(obj->img->data, 0,  obj->img->rows * obj->img->cols * 3);
+    circle(*obj->img, Point(observed.x, observed.y), 4, cv::Scalar(128, 255, 255));  // observed
+    circle(*obj->img, Point(predicted.x, predicted.y), 4, cv::Scalar(255, 255, 255), 2);  // predicted
+    circle(*obj->img, Point(actual_to.x, actual_to.y), 4, cv::Scalar(0, 0, 255));  // actual to
+    imshow("Kalman", *obj->img);
+
+	if ((cv::waitKey(100) & 255) == 27) {
+		exit(0);
+    }
 }
 
 void static_test()
@@ -322,6 +350,10 @@ void static_test()
 }
 int main(int argc, const char **argv)
 {
-	static_test();
-	//unit_test_kalman_filter(cv_draw_frame, 0);
+	kalman_test_t obj;
+
+	memset(&obj, 0, sizeof(kalman_test_t));
+	//static_test();
+	//unit_test_kalman_filter_angle(&obj, cv_draw_frame);
+	unit_test_kalman_filter_mouse(&obj, cv_draw_frame, cv_get_mouse);
 }

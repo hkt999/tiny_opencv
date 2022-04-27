@@ -3,6 +3,13 @@
 
 using namespace kcv;
 
+// 
+// A = a00, a01
+//     a10, a11
+// B = b00
+//     b10
+// M = [A B]
+
 Mat getAffineTransform( const Point2f src[], const Point2f dst[])
 {
     Mat M(2, 3, CV_64F), X(6, 1, CV_64F, M.ptr());
@@ -21,7 +28,8 @@ Mat getAffineTransform( const Point2f src[], const Point2f dst[])
         b[i*2+1] = dst[i].y;
     }
 
-    //solve( A, B, X );
+    X = A * B.inverse();
+
     return M;
 }
 

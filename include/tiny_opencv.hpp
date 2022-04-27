@@ -176,10 +176,12 @@ class Scalar {
 		double v[4];
 
 	public:
+		Scalar():Scalar(0) {}
 		Scalar(double v0) { count = 1; v[0] = v0; v[1] = 0; v[2] = 0; v[3] = 0; }
 		Scalar(double v0, double v1) { count = 2; v[0] = v0; v[1] = v1; v[2] = 0; v[3] = 0; }
 		Scalar(double v0, double v1, double v2) { count = 3; v[0] = v0; v[1] = v1; v[2] = v2; v[3] = 0; }
-		Scalar(double v0, double v1, double v2, double v3);
+		Scalar(double v0, double v1, double v2, double v3) { count=4; v[0] = v0; v[1] = v1; v[2] = v2; v[3] = v3; }
+		static Scalar all(double v) { Scalar s(v,v,v,v); return s; }
 };
 
 class Mat

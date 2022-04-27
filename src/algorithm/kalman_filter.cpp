@@ -18,7 +18,6 @@ void KalmanFilter::init(int DP, int MP, int CP, int type)
 {
     assert( DP > 0 && MP > 0 );
     assert( type == CV_32F || type == CV_64F );
-    //CP = max(CP, 0);
     if (CP<0)
         CP = 0;
 
@@ -29,6 +28,7 @@ void KalmanFilter::init(int DP, int MP, int CP, int type)
     processNoiseCov = Mat::eye(DP, DP, type);
     measurementMatrix = Mat::zeros(MP, DP, type);
     measurementNoiseCov = Mat::eye(MP, MP, type);
+    measurementNoiseCov.print("eye NoiseConv");
 
     errorCovPre = Mat::zeros(DP, DP, type);
     errorCovPost = Mat::zeros(DP, DP, type);
@@ -48,7 +48,7 @@ void KalmanFilter::init(int DP, int MP, int CP, int type)
 
 Mat &KalmanFilter::correct(const Mat &measurement)
 {
-    // temp2 = H*P'(k)
+    // temp2 = H * P'(k)
     temp2 = measurementMatrix * errorCovPre;
 
     // temp3 = temp2*Ht + R
@@ -93,10 +93,7 @@ Mat &KalmanFilter::predict(const Mat &control)
     // update error covariance matrices: temp1 = A*P(k)
     temp1 = transitionMatrix * errorCovPost;
 
-    // P'(k) = temp1*At + Q
-    // gemm(src1, src2, alpha, src3, beta, output, flags )
-    // gemm --> dst = alpha * src1.transpose * src2 + beta * src3.transpose
-    // gemm(temp1, transitionMatrix, 1, processNoiseCov, 1, errorCovPre, GEMM_2_T);
+    // P'(k) = temp1 * At + Q
     errorCovPre = temp1 * transitionMatrix.t() + processNoiseCov;
 
     // handle the case when there will be measurement before the next predict.

@@ -62,9 +62,11 @@ void resize(const Mat src, Mat &dst, Size size, float h_ratio, float v_ratio, in
             break;
 
         case INTER_LINEAR:
+            // TODO
             break;
 
         case INTER_CUBIC:
+            // not supported
             break;
     }
     if (dst.ref->data == 0) {
