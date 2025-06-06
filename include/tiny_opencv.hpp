@@ -2,6 +2,7 @@
 #define _OPENCV_CORE_H_
 
 #include "tiny_types.hpp"
+#include <vector>
 
 #define KCV kcv
 
@@ -81,8 +82,12 @@ typedef Point_<float> Point2f;
 typedef Point_<double> Point2d;
 typedef Point2i Point;
 
+#ifndef MIN
 #define MIN(a,b)    (((a)<(b))?(a):(b))
+#endif
+#ifndef MAX
 #define MAX(a,b)    (((a)<(b))?(b):(a))
+#endif
 template <typename _Tp> class Rect_
 {
 	public:
@@ -143,15 +148,27 @@ typedef Rect2i Rect;
 // +--------+----+----+----+----+------+------+------+------+
 
 enum {
-	CV_8UC1 =  0, CV_8SC1, CV_16UC1, CV_16SC1, CV_32SC1, CV_32FC1, CV_64FC1,
-	CV_8UC2 =  8, CV_8SC2, CV_16UC2, CV_16SC2, CV_32SC2, CV_32FC2, CV_64FC2,
-	CV_8UC3 = 16, CV_8SC3, CV_16UC3, CV_16SC3, CV_32SC3, CV_32FC3, CV_64FC3,
-	CV_8UC4 = 24, CV_8SC4, CV_16UC4, CV_16SC4, CV_32SC4, CV_32FC4, CV_64FC4
+	KCV_8UC1 =  0, KCV_8SC1, KCV_16UC1, KCV_16SC1, KCV_32SC1, KCV_32FC1, KCV_64FC1,
+	KCV_8UC2 =  8, KCV_8SC2, KCV_16UC2, KCV_16SC2, KCV_32SC2, KCV_32FC2, KCV_64FC2,
+	KCV_8UC3 = 16, KCV_8SC3, KCV_16UC3, KCV_16SC3, KCV_32SC3, KCV_32FC3, KCV_64FC3,
+	KCV_8UC4 = 24, KCV_8SC4, KCV_16UC4, KCV_16SC4, KCV_32SC4, KCV_32FC4, KCV_64FC4
 };
 
+#ifndef OPENCV_CORE_HAL_INTERFACE_H
+// For backward compatibility when not using OpenCV
+enum {
+	CV_8UC1 = KCV_8UC1, CV_8SC1 = KCV_8SC1, CV_16UC1 = KCV_16UC1, CV_16SC1 = KCV_16SC1, CV_32SC1 = KCV_32SC1, CV_32FC1 = KCV_32FC1, CV_64FC1 = KCV_64FC1,
+	CV_8UC2 = KCV_8UC2, CV_8SC2 = KCV_8SC2, CV_16UC2 = KCV_16UC2, CV_16SC2 = KCV_16SC2, CV_32SC2 = KCV_32SC2, CV_32FC2 = KCV_32FC2, CV_64FC2 = KCV_64FC2,
+	CV_8UC3 = KCV_8UC3, CV_8SC3 = KCV_8SC3, CV_16UC3 = KCV_16UC3, CV_16SC3 = KCV_16SC3, CV_32SC3 = KCV_32SC3, CV_32FC3 = KCV_32FC3, CV_64FC3 = KCV_64FC3,
+	CV_8UC4 = KCV_8UC4, CV_8SC4 = KCV_8SC4, CV_16UC4 = KCV_16UC4, CV_16SC4 = KCV_16SC4, CV_32SC4 = KCV_32SC4, CV_32FC4 = KCV_32FC4, CV_64FC4 = KCV_64FC4
+};
+#endif
+
+#ifndef OPENCV_CORE_HAL_INTERFACE_H
 enum {
 	CV_8U=0, CV_8S=1, CV_16U=2, CV_16S=3, CV_32S=4, CV_32F=5, CV_64F=6
 };
+#endif
 
 #pragma pack(push, 1)
 typedef struct _8uc1_t {
@@ -248,8 +265,8 @@ class Mat
 
 	public:
 		// member functions
-		const inline bool empty() { return (ref->data == 0) || ((cols == 0) && (rows==0)); }
-		inline int channels() { return (type/8)+1; }
+		const inline bool empty() const { return (ref->data == 0) || ((cols == 0) && (rows==0)); }
+		inline int channels() const { return (type/8)+1; }
 		inline int depth() { return (type%8); }
 		inline int dims() { return 2; } // only supports 2 channels (row/col)
 		int elemSize();
@@ -308,6 +325,24 @@ void filter2D(const Mat src, Mat &dst, int ddepth, Mat &kernel);
 void equalizeHist(const Mat src, Mat &dst);
 Mat getRotationMatrix2D(Point2f center, double angle, double scale);
 Mat getAffineTransform(const Point2f src[], const Point2f dst[]);
+
+// Hough Line Transform
+class HoughLine {
+public:
+    Point2f start;
+    Point2f end;
+    double rho;
+    double theta;
+    int votes;
+    
+    HoughLine() : rho(0), theta(0), votes(0) {}
+    HoughLine(double r, double t, int v) : rho(r), theta(t), votes(v) {}
+};
+
+void HoughLines(const Mat src, std::vector<HoughLine> &lines, double rho, double theta, int threshold, double minLineLength = 0, double maxLineGap = 0);
+
+// Color blob detection
+void inRange(const Mat src, const Scalar lowerb, const Scalar upperb, Mat &dst);
 
 // utilities
 void randn(Mat &dst, float mean, float sigma);

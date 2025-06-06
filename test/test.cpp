@@ -345,6 +345,8 @@ void static_test()
 	mat_test_crop_c3(img);
 	unit_test_transpose_matrix();
 	unit_test_inverse_matrix();
+	unit_test_hough_lines();
+	unit_test_in_range();
 	waitKey(0);
 	destroyAllWindows();
 }
@@ -353,7 +355,7 @@ int main(int argc, const char **argv)
 	kalman_test_t obj;
 
 	memset(&obj, 0, sizeof(kalman_test_t));
-	//static_test();
+	static_test();
 	//unit_test_kalman_filter_angle(&obj, cv_draw_frame);
-	unit_test_kalman_filter_mouse(&obj, cv_draw_frame, cv_get_mouse);
+	//unit_test_kalman_filter_mouse(&obj, cv_draw_frame, cv_get_mouse);
 }

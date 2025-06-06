@@ -22,10 +22,12 @@ add_library(
 	${CMAKE_CURRENT_LIST_DIR}/src/filter/filter_2d.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/filter/equalize_hist.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/filter/clear_boundary.cpp
+	${CMAKE_CURRENT_LIST_DIR}/src/filter/in_range.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/algorithm/kalman_filter.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/algorithm/hungarian.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/algorithm/get_rotation_matrix_2d.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/algorithm/get_affine_transform.cpp
+	${CMAKE_CURRENT_LIST_DIR}/src/algorithm/hough_lines.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/utils/split.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/utils/merge.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/cvtcolor/rgb2yuv.cpp
@@ -69,6 +71,8 @@ add_executable(
 	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_filter.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_matrix.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_kalman.cpp
+	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_hough.cpp
+	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_inrange.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/util.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/test.cpp
 )

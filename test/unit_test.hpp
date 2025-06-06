@@ -48,6 +48,12 @@ void *unit_test_crop_c3(void *data, int width, int height, int roi_x, int roi_y,
 int unit_test_inverse_matrix();
 int unit_test_transpose_matrix();
 
+// hough lines test functions
+void unit_test_hough_lines();
+
+// inRange test functions
+void unit_test_in_range();
+
 typedef struct _point_t {
     int x;
     int y;
