@@ -47,7 +47,6 @@ add_library(
 	${CMAKE_CURRENT_LIST_DIR}/src/cvtcolor/rgb2hsv.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/cvtcolor/cvtcolor.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/mat.cpp
-	${CMAKE_CURRENT_LIST_DIR}/src/opencv.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/resize.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/randn.cpp
 	${CMAKE_CURRENT_LIST_DIR}/src/3rd_party/quirc/quirc.h
