@@ -108,7 +108,11 @@ static void do_convolution(const Mat src, Mat &dst, Mat &kernel, int chans)
 
 void filter2D(const Mat src, Mat &dst, int ddepth, Mat &kernel)
 {
-    int chans;
+    if (src.empty()) {
+        throw Exception("filter2D: input image is empty");
+    }
+
+    int chans = 0;
     switch (src.type) {
         case CV_8UC1:
             chans = 1;
@@ -117,6 +121,9 @@ void filter2D(const Mat src, Mat &dst, int ddepth, Mat &kernel)
         case CV_8UC3:
             chans = 3;
             break;
+
+        default:
+            throw Exception("filter2D: only CV_8UC1 and CV_8UC3 are supported");
     }
     do_convolution(src, dst, kernel, chans);
 }

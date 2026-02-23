@@ -201,8 +201,15 @@ Mat& Mat::operator-(const Mat &m) const
 
 Mat& Mat::operator*(const Mat& m) const
 {
-    assert(cols == m.rows);
-    assert(type == m.type);
+    if (cols != m.rows) {
+        throw Exception("operator * dimension is mismatched");
+    }
+    if (type != m.type) {
+        throw Exception("operator * type mismatch");
+    }
+    if (type != CV_32FC1) {
+        throw Exception("operator * only supports CV_32FC1");
+    }
 
     Mat &t = Mat::zeros(rows, m.cols, type);
     float *c = t.getData<float>();
