@@ -3,6 +3,7 @@
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include <sstream>
 #include <vector>
 #include "unit_test.hpp"
 #include "tiny_opencv.hpp"
@@ -40,6 +41,18 @@ static void expect_hue_red(uchar got, const char *msg)
         return;
     }
     fail_test(msg);
+}
+
+static void expect_hue_near(uchar got, int expect, int tol, const char *msg)
+{
+    int g = (int)got;
+    int d = abs(g - expect);
+    if (d > 128) {
+        d = 256 - d;
+    }
+    if (d > tol) {
+        fail_test(msg);
+    }
 }
 
 static void expect_float_near(float got, float expect, float tol, const char *msg)
@@ -238,7 +251,10 @@ static void test_hungarian_exhaustive()
     neg.at<float>(0, 0) = -1.0f; neg.at<float>(0, 1) = 2.0f;
     neg.at<float>(1, 0) = 3.0f;  neg.at<float>(1, 1) = 4.0f;
     Mat neg_assign(2, 1, CV_32FC1);
+    std::ostringstream sink;
+    std::streambuf *old_cerr = std::cerr.rdbuf(sink.rdbuf());
     double neg_cost = solver.Solve(neg, neg_assign);
+    std::cerr.rdbuf(old_cerr);
     expect_true(isfinite(neg_cost), "hungarian negative-cost path produced non-finite");
 
     Mat square(4, 4, CV_32FC1);
@@ -428,6 +444,64 @@ static void test_hsv_numeric()
     expect_uchar_near(rt_px.c1, src_px.c1, 4, "HSV roundtrip blue mismatch");
     expect_uchar_near(rt_px.c2, src_px.c2, 4, "HSV roundtrip green mismatch");
     expect_uchar_near(rt_px.c3, src_px.c3, 4, "HSV roundtrip red mismatch");
+
+    Mat gray(1, 1, CV_8UC3);
+    gray.at<cv8uc3_t>(0, 0).c1 = 120;
+    gray.at<cv8uc3_t>(0, 0).c2 = 120;
+    gray.at<cv8uc3_t>(0, 0).c3 = 120;
+    Mat hsv_gray;
+    cvtColor(gray, hsv_gray, CV_BGR2HSV);
+    cv8uc3_t gray_hsv = hsv_gray.at<cv8uc3_t>(0, 0);
+    expect_true(gray_hsv.c1 == 0, "BGR2HSV gray hue should be 0");
+    expect_true(gray_hsv.c2 == 0, "BGR2HSV gray saturation should be 0");
+    expect_uchar_near(gray_hsv.c3, 120, 1, "BGR2HSV gray value mismatch");
+
+    Mat black(1, 1, CV_8UC3);
+    black.at<cv8uc3_t>(0, 0).c1 = 0;
+    black.at<cv8uc3_t>(0, 0).c2 = 0;
+    black.at<cv8uc3_t>(0, 0).c3 = 0;
+    Mat hsv_black;
+    cvtColor(black, hsv_black, CV_BGR2HSV);
+    cv8uc3_t black_hsv = hsv_black.at<cv8uc3_t>(0, 0);
+    expect_true(black_hsv.c1 == 0 && black_hsv.c2 == 0 && black_hsv.c3 == 0, "BGR2HSV black mismatch");
+
+    struct rgb_h_case_t { uchar r; uchar g; uchar b; int exp_h; };
+    rgb_h_case_t rgb_cases[] = {
+        {255,   0, 120, 235}, // r max, g min
+        {255, 120,   0,  20}, // r max, g != min
+        {120, 255,   0,  65}, // g max, b min
+        {  0, 255, 120, 105}, // g max, b != min
+        {  0, 120, 255, 150}, // b max, r min
+        {120,   0, 255, 190}  // b max, r != min
+    };
+    for (int i = 0; i < 6; i++) {
+        Mat rgb(1, 1, CV_8UC3);
+        rgb.at<cv8uc3_t>(0, 0).c1 = rgb_cases[i].r;
+        rgb.at<cv8uc3_t>(0, 0).c2 = rgb_cases[i].g;
+        rgb.at<cv8uc3_t>(0, 0).c3 = rgb_cases[i].b;
+        Mat hsv_from_case;
+        cvtColor(rgb, hsv_from_case, CV_RGB2HSV);
+        cv8uc3_t hv = hsv_from_case.at<cv8uc3_t>(0, 0);
+        expect_hue_near(hv.c1, rgb_cases[i].exp_h, 5, "RGB2HSV hue branch mismatch");
+        expect_true(hv.c2 > 130, "RGB2HSV saturation should be high");
+        expect_true(hv.c3 > 200, "RGB2HSV value should be high");
+    }
+
+    int hue_samples[] = {0, 43, 85, 128, 170, 213, 255};
+    for (int i = 0; i < 7; i++) {
+        Mat hsv1(1, 1, CV_8UC3);
+        hsv1.at<cv8uc3_t>(0, 0).c1 = (uchar)hue_samples[i];
+        hsv1.at<cv8uc3_t>(0, 0).c2 = 255;
+        hsv1.at<cv8uc3_t>(0, 0).c3 = 255;
+        Mat rgb1, hsv2;
+        cvtColor(hsv1, rgb1, CV_HSV2RGB);
+        cvtColor(rgb1, hsv2, CV_RGB2HSV);
+        cv8uc3_t hv = hsv2.at<cv8uc3_t>(0, 0);
+        int expect_h = (hue_samples[i] == 255) ? 0 : hue_samples[i];
+        expect_hue_near(hv.c1, expect_h, 6, "HSV->RGB->HSV hue mismatch");
+        expect_uchar_near(hv.c2, 255, 4, "HSV->RGB->HSV saturation mismatch");
+        expect_uchar_near(hv.c3, 255, 4, "HSV->RGB->HSV value mismatch");
+    }
 }
 
 static void test_split_merge()

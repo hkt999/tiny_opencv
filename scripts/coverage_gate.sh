@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-$ROOT_DIR/build_coverage}"
 MIN_LINE="${MIN_LINE_COVERAGE:-70}"
 MIN_BRANCH="${MIN_BRANCH_COVERAGE:-50}"
+KEY_FILE_GATES="${KEY_FILE_GATES:-src/mat.cpp:72:70;src/cvtcolor/rgb2hsv.cpp:68:65;src/utils/merge.cpp:70:65}"
 
 echo "[coverage] configure: $BUILD_DIR"
 cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON >/dev/null
@@ -69,6 +70,52 @@ echo "[coverage] gate: lines>=${MIN_LINE}% branches>=${MIN_BRANCH}%"
 pass=1
 awk "BEGIN {exit !($LINE_PCT >= $MIN_LINE)}" || pass=0
 awk "BEGIN {exit !($BRANCH_PCT >= $MIN_BRANCH)}" || pass=0
+
+get_file_cov() {
+    local rel="$1"
+    local obj="$BUILD_DIR/CMakeFiles/tiny_opencv.dir/${rel}.o"
+    if [[ ! -f "$obj" ]]; then
+        echo "0 0"
+        return
+    fi
+
+    local out line_cov branch_cov
+    out="$(gcov -n -b -o "$obj" "$ROOT_DIR/$rel" 2>/dev/null || true)"
+    line_cov="$(awk -v f="$ROOT_DIR/$rel" '
+    $0=="File '\''"f"'\''" {hit=1; next}
+    hit && /^File / {hit=0}
+    hit && /^Lines executed:/ {
+        v=$0; sub("Lines executed:","",v); split(v,a,"%"); print a[1]; exit
+    }
+    ' <<< "$out")"
+    branch_cov="$(awk -v f="$ROOT_DIR/$rel" '
+    $0=="File '\''"f"'\''" {hit=1; next}
+    hit && /^File / {hit=0}
+    hit && /^Branches executed:/ {
+        v=$0; sub("Branches executed:","",v); split(v,a,"%"); print a[1]; exit
+    }
+    ' <<< "$out")"
+
+    if [[ -z "${line_cov}" ]]; then line_cov="0"; fi
+    if [[ -z "${branch_cov}" ]]; then branch_cov="0"; fi
+    echo "$line_cov $branch_cov"
+}
+
+IFS=';' read -r -a gate_specs <<< "$KEY_FILE_GATES"
+for spec in "${gate_specs[@]}"; do
+    [[ -z "$spec" ]] && continue
+    IFS=':' read -r rel_file min_l min_b <<< "$spec"
+    if [[ -z "${rel_file:-}" || -z "${min_l:-}" || -z "${min_b:-}" ]]; then
+        echo "[coverage] skip malformed file gate: $spec"
+        pass=0
+        continue
+    fi
+
+    read -r file_line file_branch < <(get_file_cov "$rel_file")
+    echo "[coverage] file: ${rel_file} lines=${file_line}% branches=${file_branch}% gate>=${min_l}%/${min_b}%"
+    awk "BEGIN {exit !($file_line >= $min_l)}" || pass=0
+    awk "BEGIN {exit !($file_branch >= $min_b)}" || pass=0
+done
 
 if [[ "$pass" -ne 1 ]]; then
     echo "[coverage] FAIL"

@@ -163,6 +163,12 @@ Customize thresholds with env vars:
 MIN_LINE_COVERAGE=75 MIN_BRANCH_COVERAGE=55 ./scripts/coverage_gate.sh
 ```
 
+Also supports per-file gates:
+
+```bash
+KEY_FILE_GATES="src/mat.cpp:80:75;src/cvtcolor/rgb2hsv.cpp:75:70" ./scripts/coverage_gate.sh
+```
+
 Note: The CMake configuration currently always builds the test target and requires OpenCV to be installed and discoverable. If you only need the library and do not have OpenCV, remove/disable the `tiny_opencv_test` target in `CMakeLists.txt` or add your own CMake option to guard it.
 
 The test program demonstrates various functionalities including:
