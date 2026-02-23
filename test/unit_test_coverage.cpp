@@ -651,6 +651,35 @@ static void test_split_merge()
     float *fm_ptr = fmerge.getData<float>();
     expect_float_near(fm_ptr[(1 * 2 + 1) * 3 + 2], 24.0f, 1e-6f, "merge float channel mismatch");
 
+    // Exercise 16-bit and 64-bit depth paths in split/merge helpers.
+    Mat src16(1, 2, CV_16UC2);
+    src16.at<uint16_t>(0) = 100;
+    src16.at<uint16_t>(1) = 1000;
+    src16.at<uint16_t>(2) = 200;
+    src16.at<uint16_t>(3) = 2000;
+    Mat ch16[2];
+    split(src16, ch16, 2);
+    expect_true(ch16[0].type == CV_16UC1 && ch16[1].type == CV_16UC1, "split 16U type mismatch");
+    expect_true(ch16[0].at<uint16_t>(0, 1) == 200, "split 16U value mismatch");
+    Mat merged16;
+    merge(ch16, 2, merged16);
+    expect_true(merged16.type == CV_16UC2, "merge 16U type mismatch");
+    expect_true(merged16.at<uint16_t>(3) == 2000, "merge 16U value mismatch");
+
+    Mat src64(1, 2, CV_64FC2);
+    src64.at<double>(0) = 1.25;
+    src64.at<double>(1) = -2.5;
+    src64.at<double>(2) = 3.75;
+    src64.at<double>(3) = -4.5;
+    Mat ch64[2];
+    split(src64, ch64, 2);
+    expect_true(ch64[0].type == CV_64FC1 && ch64[1].type == CV_64FC1, "split 64F type mismatch");
+    expect_true(fabs(ch64[1].at<double>(0, 0) + 2.5) < 1e-12, "split 64F value mismatch");
+    Mat merged64;
+    merge(ch64, 2, merged64);
+    expect_true(merged64.type == CV_64FC2, "merge 64F type mismatch");
+    expect_true(fabs(merged64.at<double>(2) - 3.75) < 1e-12, "merge 64F value mismatch");
+
     EXPECT_THROW(split(Mat(), ch, 3), "split should reject empty input");
     EXPECT_THROW(split(src, (Mat *)0, 3), "split should reject null destination array");
     uchar unsupported_src_data[1] = {7};

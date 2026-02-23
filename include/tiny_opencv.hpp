@@ -257,7 +257,8 @@ class Mat
 		}
 		template <typename _Tp> inline _Tp& at(int idx) const {
 			assert(ref != 0 && ref->data != 0);
-			assert(idx >= 0 && idx < rows * cols);
+			assert(idx >= 0);
+			assert((size_t)(idx + 1) * sizeof(_Tp) <= (size_t)rows * cols * elemSize());
 			_Tp *d = (_Tp *)ref->data;
 			return d[idx];
 		}
