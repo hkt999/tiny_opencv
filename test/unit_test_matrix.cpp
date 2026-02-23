@@ -21,20 +21,21 @@ void printMatrix(const char *name, Mat &m)
 #define ERROR 0.001
 int unit_test_inverse_matrix()
 {
-    constexpr int FLOAT_MIN = 0;
-    constexpr int FLOAT_MAX = 100;
-
-    random_device rd;
-    default_random_engine eng(rd());
-    uniform_real_distribution<> distr(FLOAT_MIN, FLOAT_MAX);
+    std::mt19937 eng(1337);
+    std::uniform_real_distribution<float> distr(-1.0f, 1.0f);
 
     for (int i=1; i<11; i++) {
-        float *data = (float *)malloc(i*i*sizeof(float));
-        for (int j=0; j<i*i; j++)
-            data[j] = distr(eng);
-
         printf("calculating inverse (%d x %d)... ", i, i);
-        Mat m(i, i, CV_32F, data);
+        Mat m(i, i, CV_32F);
+        for (int r = 0; r < i; r++) {
+            for (int c = 0; c < i; c++) {
+                m.at<float>(r, c) = distr(eng);
+            }
+        }
+        // Keep the matrix well-conditioned for stable numeric checks.
+        for (int d = 0; d < i; d++) {
+            m.at<float>(d, d) += (float)(i * 4);
+        }
         Mat inv = m.inverse();
         Mat res = m * inv;
         // check result
@@ -56,7 +57,6 @@ int unit_test_inverse_matrix()
             }
         }
         printf("UnitTest Inverse: OK\n");
-        free(data);
     }
 
     return 0; // OK
