@@ -36,3 +36,36 @@ jobs:
 
       - name: Coverage Gate
         run: ./scripts/coverage_gate.sh
+
+  sanitizer:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        san: [address, undefined]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ pkg-config libopencv-dev
+
+      - name: Build (${{ matrix.san }})
+        run: |
+          if [ "${{ matrix.san }}" = "address" ]; then
+            SAN_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+          else
+            SAN_FLAGS="-fsanitize=undefined -fno-sanitize-recover=all -fno-omit-frame-pointer"
+          fi
+          cmake -S . -B build_san \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_FLAGS="$SAN_FLAGS" \
+            -DCMAKE_CXX_FLAGS="$SAN_FLAGS" \
+            -DCMAKE_EXE_LINKER_FLAGS="$SAN_FLAGS"
+          cmake --build build_san -j
+
+      - name: Run Unit Tests (${{ matrix.san }})
+        run: ./build_san/tiny_opencv_test

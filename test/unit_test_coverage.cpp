@@ -120,6 +120,36 @@ static void test_threshold_modes()
     expect_true(out.empty(), "threshold invalid mode should produce empty output");
 }
 
+static void test_bilateral_stability()
+{
+    Mat src(7, 7, CV_8UC1);
+    for (int r = 0; r < src.rows; r++) {
+        for (int c = 0; c < src.cols; c++) {
+            src.at<uchar>(r, c) = (uchar)(r * 10 + c);
+        }
+    }
+    Mat dst;
+    bilateralFilter(src, dst, 5, 0.0, 0.0);
+    expect_true(dst.rows == src.rows && dst.cols == src.cols, "bilateral c1 shape mismatch");
+    expect_true(dst.at<uchar>(3, 3) == src.at<uchar>(3, 3), "bilateral c1 sigma-zero center mismatch");
+
+    Mat src3(7, 7, CV_8UC3);
+    for (int r = 0; r < src3.rows; r++) {
+        for (int c = 0; c < src3.cols; c++) {
+            src3.at<cv8uc3_t>(r, c).c1 = (uchar)(r + c);
+            src3.at<cv8uc3_t>(r, c).c2 = (uchar)(r * 3 + c);
+            src3.at<cv8uc3_t>(r, c).c3 = (uchar)(200 - r - c);
+        }
+    }
+    Mat dst3;
+    bilateralFilter(src3, dst3, 5, 0.0, 0.0);
+    cv8uc3_t center = dst3.at<cv8uc3_t>(3, 3);
+    cv8uc3_t center_src = src3.at<cv8uc3_t>(3, 3);
+    expect_true(center.c1 == center_src.c1, "bilateral c3 sigma-zero center c1 mismatch");
+    expect_true(center.c2 == center_src.c2, "bilateral c3 sigma-zero center c2 mismatch");
+    expect_true(center.c3 == center_src.c3, "bilateral c3 sigma-zero center c3 mismatch");
+}
+
 static void test_box_filter_and_geometry()
 {
     Mat src(5, 5, CV_8UC1);
@@ -600,6 +630,17 @@ static void test_resize_modes_and_errors()
     resize(one, one_up, Size(4, 4), 0.0f, 0.0f, INTER_LINEAR);
     expect_true(one_up.at<uchar>(3, 3) == 123, "linear 1x1 expand mismatch");
 
+    Mat half;
+    resize(src, half, Size(), 0.5f, 0.5f, INTER_NEAREST);
+    expect_true(half.rows == 1 && half.cols == 1, "ratio downscale shape mismatch");
+    expect_true(half.at<uchar>(0, 0) == 0, "ratio downscale value mismatch");
+
+    Mat bad_type_src(2, 2, CV_32FC1);
+    EXPECT_THROW(resize(bad_type_src, nearest, Size(4, 4), 0.0f, 0.0f, INTER_NEAREST), "resize nearest should reject unsupported source type");
+    EXPECT_THROW(resize(bad_type_src, nearest, Size(4, 4), 0.0f, 0.0f, INTER_LINEAR), "resize linear should reject unsupported source type");
+
+    EXPECT_THROW(resize(Mat(), nearest, Size(4, 4), 0.0f, 0.0f, INTER_NEAREST), "resize should reject empty input");
+    EXPECT_THROW(resize(src, nearest, Size(0, 4), 0.0f, 0.0f, INTER_NEAREST), "resize should reject non-positive output size");
     EXPECT_THROW(resize(src, nearest, Size(), 0.0f, 2.0f, INTER_NEAREST), "resize should reject invalid ratio");
     EXPECT_THROW(resize(src, nearest, Size(4, 4), 0.0f, 0.0f, INTER_CUBIC), "resize should reject unsupported cubic mode");
     EXPECT_THROW(resize(src, nearest, Size(4, 4), 0.0f, 0.0f, 99), "resize should reject unknown mode");
@@ -626,12 +667,26 @@ static void test_error_paths()
 
     Mat src_bgr(2, 2, CV_8UC3);
     EXPECT_THROW(cvtColor(src8, dst, CV_BGR2GRAY), "cvtColor should reject wrong src type");
+    EXPECT_THROW(cvtColor(src8, dst, CV_RGB2GRAY), "cvtColor should reject wrong src type for RGB2GRAY");
+    EXPECT_THROW(cvtColor(src_bgr, dst, CV_GRAY2BGR), "cvtColor should reject wrong src type for GRAY2BGR");
+    EXPECT_THROW(cvtColor(src8, dst, CV_BGR2YUV_I420), "cvtColor should reject wrong src type for BGR2YUV");
+    EXPECT_THROW(cvtColor(src8, dst, CV_RGB2YUV_I420), "cvtColor should reject wrong src type for RGB2YUV");
+    EXPECT_THROW(cvtColor(src_bgr, dst, CV_YUV2BGR_I420), "cvtColor should reject wrong src type for YUV2BGR");
+    EXPECT_THROW(cvtColor(src_bgr, dst, CV_YUV2RGB_I420), "cvtColor should reject wrong src type for YUV2RGB");
+    EXPECT_THROW(cvtColor(src8, dst, CV_RGB2BGR), "cvtColor should reject wrong src type for RGB2BGR");
+    EXPECT_THROW(cvtColor(src8, dst, CV_BGR2HSV), "cvtColor should reject wrong src type for BGR2HSV");
+    EXPECT_THROW(cvtColor(src8, dst, CV_RGB2HSV), "cvtColor should reject wrong src type for RGB2HSV");
+    EXPECT_THROW(cvtColor(src8, dst, CV_HSV2BGR), "cvtColor should reject wrong src type for HSV2BGR");
+    EXPECT_THROW(cvtColor(src8, dst, CV_HSV2RGB), "cvtColor should reject wrong src type for HSV2RGB");
     EXPECT_THROW(cvtColor(src_bgr, dst, 999), "cvtColor should reject unknown code");
+    EXPECT_THROW(cvtColor(Mat(), dst, CV_BGR2GRAY), "cvtColor should reject empty input");
 
     Mat odd(3, 3, CV_8UC3);
     EXPECT_THROW(cvtColor(odd, dst, CV_BGR2YUV_I420), "cvtColor should reject odd-size I420 input");
+    EXPECT_THROW(cvtColor(odd, dst, CV_RGB2YUV_I420), "cvtColor should reject odd-size I420 input for RGB");
 
     Mat invalid_i420(5, 2, CV_8UC1);
+    EXPECT_THROW(cvtColor(invalid_i420, dst, CV_YUV2BGR_I420), "cvtColor should reject invalid I420 layout for YUV2BGR");
     EXPECT_THROW(cvtColor(invalid_i420, dst, CV_YUV2RGB_I420), "cvtColor should reject invalid I420 layout");
 }
 
@@ -717,10 +772,55 @@ static void test_mat_semantics()
     free(external);
 }
 
+static void test_mat_refcount_stress()
+{
+    Mat base(4, 4, CV_8UC1);
+    for (int i = 0; i < 16; i++) {
+        base.at<uchar>(i) = (uchar)i;
+    }
+
+    Mat refs[64];
+    for (int i = 0; i < 64; i++) {
+        refs[i] = base;
+    }
+    expect_true(base.ref->count == 65, "mat stress initial refcount mismatch");
+
+    for (int i = 0; i < 64; i += 2) {
+        refs[i].release();
+    }
+    expect_true(base.ref->count == 33, "mat stress half-release refcount mismatch");
+
+    for (int i = 1; i < 64; i += 2) {
+        refs[i].release();
+    }
+    expect_true(base.ref->count == 1, "mat stress full-release refcount mismatch");
+
+    uchar *raw = (uchar *)malloc(16);
+    for (int i = 0; i < 16; i++) {
+        raw[i] = (uchar)(200 + i);
+    }
+    Mat wrapped(4, 4, CV_8UC1, raw);
+    for (int iter = 0; iter < 200; iter++) {
+        Mat c1 = wrapped;
+        Mat c2;
+        c2 = c1;
+        Mat roi_copy(c1, Rect(1, 1, 2, 2));
+        expect_true(roi_copy.at<uchar>(0, 0) == raw[5], "mat stress roi copy mismatch");
+        c2.release();
+        c1.release();
+    }
+    expect_true(wrapped.ref->count == 1, "mat stress wrapped final refcount mismatch");
+    wrapped.release();
+    raw[0] = 17;
+    expect_true(raw[0] == 17, "mat stress external buffer should stay writable");
+    free(raw);
+}
+
 void unit_test_coverage()
 {
     cout << "=== Coverage Supplement Test ===" << endl;
     test_threshold_modes();
+    test_bilateral_stability();
     test_box_filter_and_geometry();
     test_hungarian_and_random();
     test_hungarian_exhaustive();
@@ -729,6 +829,7 @@ void unit_test_coverage()
     test_resize_modes_and_errors();
     test_error_paths();
     test_mat_semantics();
+    test_mat_refcount_stress();
     test_yuv_i420_numeric();
     test_yuv_low_level_paths();
     test_hsv_numeric();

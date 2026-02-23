@@ -79,6 +79,7 @@ void unit_test_in_range() {
         // Test range detection for green color (B=0, G=240-255, R=0)
         KCV::inRange(kcv_color, KCV::Scalar(0, 240, 0), KCV::Scalar(10, 255, 10), color_result);
         
+        result_data = color_result.getData<uchar>();
         white_pixels = 0;
         for (int i = 0; i < color_result.rows * color_result.cols; i++) {
             if (result_data[i] == 255) white_pixels++;

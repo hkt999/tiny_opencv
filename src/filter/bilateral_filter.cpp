@@ -10,6 +10,9 @@ static float distance(int x, int y, int i, int j) {
 }
 
 static double gaussian(float x, double sigma) {
+    if (sigma <= 0.0) {
+        return (x == 0.0f) ? 1.0 : 0.0;
+    }
     return exp(-(pow(x, 2))/(2 * pow(sigma, 2))) / (2 * M_PI * pow(sigma, 2));
 
 }
@@ -32,10 +35,17 @@ static void apply_bilateral_filter_c1(Mat source, Mat &filteredImage, int x, int
             wP = wP + w;
         }
     }
-    iFiltered = iFiltered / wP;
+    if (wP > 0.0) {
+        iFiltered = iFiltered / wP;
+    } else {
+        iFiltered = source.at<uchar>(y, x);
+    }
     uchar *p = (uchar *)filteredImage.ref->data;
     p += y * filteredImage.cols + x;
-    *p = (uchar)iFiltered;
+    if (!std::isfinite(iFiltered)) {
+        iFiltered = source.at<uchar>(y, x);
+    }
+    *p = (uchar)MIN(MAX((int)round(iFiltered), 0), 255);
 }
 
 static void apply_bilateral_filter_c3(Mat source, Mat &filteredImage, int x, int y, int diameter, double sigmaI, double sigmaS) {
@@ -71,24 +81,37 @@ static void apply_bilateral_filter_c3(Mat source, Mat &filteredImage, int x, int
             wP3 = wP3 + w3;
         }
     }
-    iFiltered_c1 = iFiltered_c1 / wP1;
-    iFiltered_c2 = iFiltered_c2 / wP2;
-    iFiltered_c3 = iFiltered_c3 / wP3;
+    if (wP1 > 0.0) {
+        iFiltered_c1 = iFiltered_c1 / wP1;
+    } else {
+        iFiltered_c1 = source.at<cv8uc3_t>(y, x).c1;
+    }
+    if (wP2 > 0.0) {
+        iFiltered_c2 = iFiltered_c2 / wP2;
+    } else {
+        iFiltered_c2 = source.at<cv8uc3_t>(y, x).c2;
+    }
+    if (wP3 > 0.0) {
+        iFiltered_c3 = iFiltered_c3 / wP3;
+    } else {
+        iFiltered_c3 = source.at<cv8uc3_t>(y, x).c3;
+    }
 
     uchar *p = (uchar *)filteredImage.ref->data;
     p += (y * filteredImage.cols + x) * 3;
-    *p++ = (uchar)iFiltered_c1;
-    *p++ = (uchar)iFiltered_c2;
-    *p++ = (uchar)iFiltered_c3;
+    *p++ = (uchar)MIN(MAX((int)round(std::isfinite(iFiltered_c1) ? iFiltered_c1 : source.at<cv8uc3_t>(y, x).c1), 0), 255);
+    *p++ = (uchar)MIN(MAX((int)round(std::isfinite(iFiltered_c2) ? iFiltered_c2 : source.at<cv8uc3_t>(y, x).c2), 0), 255);
+    *p++ = (uchar)MIN(MAX((int)round(std::isfinite(iFiltered_c3) ? iFiltered_c3 : source.at<cv8uc3_t>(y, x).c3), 0), 255);
 }
 
 static void do_bilateralFilter_c1( const Mat src, Mat &dst, int d, double sigmaColor, double sigmaSpace)
 {
     int width = src.cols;
     int height = src.rows;
+    int half = d / 2;
 
-    for(int i = 2; i < height - 2; i++) {
-        for(int j = 2; j < width - 2; j++) {
+    for(int i = half; i < height - half; i++) {
+        for(int j = half; j < width - half; j++) {
             apply_bilateral_filter_c1(src, dst, i, j, d, sigmaColor, sigmaSpace);
         }
     }
@@ -98,9 +121,10 @@ static void do_bilateralFilter_c3( const Mat src, Mat &dst, int d, double sigmaC
 {
     int width = src.cols;
     int height = src.rows;
+    int half = d / 2;
 
-    for(int i = 2; i < height - 2; i++) {
-        for(int j = 2; j < width - 2; j++) {
+    for(int i = half; i < height - half; i++) {
+        for(int j = half; j < width - half; j++) {
             apply_bilateral_filter_c3(src, dst, i, j, d, sigmaColor, sigmaSpace);
         }
     }

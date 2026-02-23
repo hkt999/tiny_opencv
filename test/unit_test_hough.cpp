@@ -1,4 +1,5 @@
 #include <opencv2/opencv.hpp>
+#include <cmath>
 #include <iostream>
 #include "unit_test.hpp"
 #include "tiny_opencv.hpp"
@@ -52,10 +53,13 @@ void unit_test_hough_lines() {
                 case 2: color = Scalar(255, 0, 0); break;   // Blue
             }
             
-            cv::line(result, 
-                    Point((int)hline.start.x, (int)hline.start.y),
-                    Point((int)hline.end.x, (int)hline.end.y),
-                    color, 2);
+            if (std::isfinite(hline.start.x) && std::isfinite(hline.start.y) &&
+                std::isfinite(hline.end.x) && std::isfinite(hline.end.y)) {
+                cv::line(result,
+                        Point((int)hline.start.x, (int)hline.start.y),
+                        Point((int)hline.end.x, (int)hline.end.y),
+                        color, 2);
+            }
         }
         
         // Validate that we found some reasonable lines
