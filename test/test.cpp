@@ -73,8 +73,8 @@ void mat_test_bgr_yuv(Mat &img)
 
 void mat_test_rgb_gray(Mat &img)
 {
-	void *gray = unit_test_bgr2gray( img.data, img.cols, img.rows);
-	void *rgb = unit_test_gray2bgr(gray, img.cols, img.rows);
+	void *gray = unit_test_rgb2gray(img.data, img.cols, img.rows);
+	void *rgb = unit_test_gray2rgb(gray, img.cols, img.rows);
 
 	Mat gray_img(img.rows, img.cols, CV_8UC1, gray);
 	showImage("RGB24 to Gray", gray_img);
@@ -162,9 +162,8 @@ static float kernel_5x5[5*5] = {
 
 void mat_test_filter2d_c1(Mat &img)
 {
-	Mat g;
 	void *c1 = unit_test_filter2d_c1(img.data, img.cols, img.rows, 5, 5, kernel_5x5);
-	cvtColor( img, g, CV_BGR2GRAY);
+	Mat g(img.rows, img.cols, CV_8UC1, c1);
 	showImage("filter2D 5x5 C1", g);
 	free(c1);
 }
@@ -363,6 +362,7 @@ void static_test(bool interactive)
 	unit_test_inverse_matrix();
 	unit_test_hough_lines();
 	unit_test_in_range();
+	unit_test_coverage();
 	if (interactive) {
 		waitKey(0);
 	}

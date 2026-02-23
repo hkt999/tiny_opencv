@@ -73,6 +73,7 @@ add_executable(
 	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_kalman.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_hough.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_inrange.cpp
+	${CMAKE_CURRENT_LIST_DIR}/test/unit_test_coverage.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/util.cpp
 	${CMAKE_CURRENT_LIST_DIR}/test/test.cpp
 )

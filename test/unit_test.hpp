@@ -53,6 +53,7 @@ void unit_test_hough_lines();
 
 // inRange test functions
 void unit_test_in_range();
+void unit_test_coverage();
 
 typedef struct _point_t {
     int x;
