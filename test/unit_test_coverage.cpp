@@ -332,6 +332,35 @@ static void test_kalman_noninteractive()
     expect_true(fabs(corr.at<float>(1, 0) - meas.at<float>(1, 0)) < 5.0f, "kalman y estimate diverged");
 }
 
+static void test_kalman_control_and_init_paths()
+{
+    KalmanFilter kf_default;
+    kf_default.init(2, 1, -1, CV_32F);
+    expect_true(kf_default.controlMatrix.empty(), "kalman init CP<0 should release control matrix");
+
+    Mat z(1, 1, CV_32FC1);
+    z.at<float>(0, 0) = 1.0f;
+    Mat p0 = kf_default.predict();
+    Mat c0 = kf_default.correct(z);
+    expect_true(p0.rows == 2 && p0.cols == 1, "kalman default init predict shape mismatch");
+    expect_true(c0.rows == 2 && c0.cols == 1, "kalman default init correct shape mismatch");
+
+    KalmanFilter kf_ctrl(2, 1, 1, CV_32F);
+    setIdentity(kf_ctrl.transitionMatrix);
+    setIdentity(kf_ctrl.measurementMatrix);
+    setIdentity(kf_ctrl.processNoiseCov, Scalar::all(1e-3));
+    setIdentity(kf_ctrl.measurementNoiseCov, Scalar::all(1e-2));
+    setIdentity(kf_ctrl.errorCovPost, Scalar::all(1));
+    kf_ctrl.controlMatrix.at<float>(0, 0) = 1.0f;
+    kf_ctrl.controlMatrix.at<float>(1, 0) = 0.5f;
+
+    Mat control(1, 1, CV_32FC1);
+    control.at<float>(0, 0) = 2.0f;
+    Mat pc = kf_ctrl.predict(control);
+    expect_float_near(pc.at<float>(0, 0), 2.0f, 1e-4f, "kalman control x update mismatch");
+    expect_float_near(pc.at<float>(1, 0), 1.0f, 1e-4f, "kalman control y update mismatch");
+}
+
 static void fill_rgb_2x2(Mat &img, uchar r, uchar g, uchar b)
 {
     for (int i = 0; i < 4; i++) {
@@ -587,6 +616,46 @@ static void test_split_merge()
     merge(fch, 3, fmerge);
     float *fm_ptr = fmerge.getData<float>();
     expect_float_near(fm_ptr[(1 * 2 + 1) * 3 + 2], 24.0f, 1e-6f, "merge float channel mismatch");
+
+    EXPECT_THROW(split(Mat(), ch, 3), "split should reject empty input");
+    EXPECT_THROW(split(src, (Mat *)0, 3), "split should reject null destination array");
+    uchar unsupported_src_data[1] = {7};
+    Mat unsupported_src(1, 1, 7, unsupported_src_data);
+    Mat unsupported_dst[1];
+    EXPECT_THROW(split(unsupported_src, unsupported_dst, 1), "split should reject unsupported depth");
+
+    EXPECT_THROW(merge((Mat *)0, 1, merged), "merge should reject null source array");
+    EXPECT_THROW(merge(ch, 0, merged), "merge should reject invalid count");
+    EXPECT_THROW(merge(ch, 5, merged), "merge should reject too many channels");
+    Mat empty_ch[1];
+    EXPECT_THROW(merge(empty_ch, 1, merged), "merge should reject empty channel 0");
+    Mat multi_ch[1];
+    multi_ch[0] = src;
+    EXPECT_THROW(merge(multi_ch, 1, merged), "merge should reject multi-channel source");
+    Mat type_mismatch[2];
+    type_mismatch[0] = Mat(2, 2, CV_8UC1);
+    type_mismatch[1] = Mat(2, 2, CV_32FC1);
+    EXPECT_THROW(merge(type_mismatch, 2, merged), "merge should reject channel type mismatch");
+    uchar unsupported_merge_data[1] = {9};
+    Mat unsupported_merge[1];
+    unsupported_merge[0] = Mat(1, 1, 7, unsupported_merge_data);
+    EXPECT_THROW(merge(unsupported_merge, 1, merged), "merge should reject unsupported depth");
+}
+
+static void test_randn_double_path()
+{
+    Mat noise64(64, 1, CV_64FC1);
+    randn(noise64, 3.0f, 0.5f);
+    double first = noise64.at<double>(0, 0);
+    bool has_diff = false;
+    for (int i = 0; i < noise64.rows; i++) {
+        double v = noise64.at<double>(i, 0);
+        expect_true(isfinite(v), "randn CV_64F should produce finite output");
+        if (v != first) {
+            has_diff = true;
+        }
+    }
+    expect_true(has_diff, "randn CV_64F produced constant output");
 }
 
 static void test_resize_modes_and_errors()
@@ -770,6 +839,78 @@ static void test_mat_semantics()
     external[0] = 9;
     expect_true(external[0] == 9, "wrapped external buffer should remain valid");
     free(external);
+
+    Mat size_ctor(Size(3, 2), CV_8UC1);
+    expect_true(size_ctor.rows == 2 && size_ctor.cols == 3, "size constructor shape mismatch");
+
+    uchar ext_by_size_data[6] = {1, 2, 3, 4, 5, 6};
+    Mat ext_by_size(Size(3, 2), CV_8UC1, ext_by_size_data);
+    expect_true(ext_by_size.at<uchar>(1, 2) == 6, "size external constructor mismatch");
+
+    Mat roi_c3_src(3, 3, CV_8UC3);
+    for (int i = 0; i < 9; i++) {
+        roi_c3_src.at<cv8uc3_t>(i).c1 = (uchar)(i + 1);
+        roi_c3_src.at<cv8uc3_t>(i).c2 = (uchar)(i + 11);
+        roi_c3_src.at<cv8uc3_t>(i).c3 = (uchar)(i + 21);
+    }
+    Mat roi_c3(roi_c3_src, Rect(1, 1, 2, 2));
+    expect_true(roi_c3.at<cv8uc3_t>(0, 0).c1 == roi_c3_src.at<cv8uc3_t>(1, 1).c1, "roi CV_8UC3 constructor mismatch");
+
+    Mat roi_f_src(3, 3, CV_32FC1);
+    for (int i = 0; i < 9; i++) {
+        roi_f_src.at<float>(i) = (float)(i * 0.5f);
+    }
+    Mat roi_f(roi_f_src, Rect(1, 0, 2, 2));
+    expect_float_near(roi_f.at<float>(1, 1), roi_f_src.at<float>(1, 2), 1e-6f, "roi CV_32FC1 constructor mismatch");
+
+    Mat roi_d_src(3, 3, CV_64FC1);
+    for (int i = 0; i < 9; i++) {
+        roi_d_src.at<double>(i) = (double)i + 0.25;
+    }
+    Mat roi_d(roi_d_src, Rect(0, 1, 2, 2));
+    expect_true(fabs(roi_d.at<double>(0, 1) - roi_d_src.at<double>(1, 1)) < 1e-9, "roi CV_64FC1 constructor mismatch");
+
+    Mat add_a(1, 2, CV_32FC1);
+    Mat add_b(1, 2, CV_32FC1);
+    add_a.at<float>(0, 0) = 1.5f; add_a.at<float>(0, 1) = 2.5f;
+    add_b.at<float>(0, 0) = 3.0f; add_b.at<float>(0, 1) = 4.0f;
+    add_a += add_b;
+    expect_float_near(add_a.at<float>(0, 0), 4.5f, 1e-6f, "operator+= value mismatch");
+    expect_float_near(add_a.at<float>(0, 1), 6.5f, 1e-6f, "operator+= value mismatch");
+    Mat add_mismatch(2, 1, CV_32FC1);
+    EXPECT_THROW(add_a += add_mismatch, "operator+= should reject shape mismatch");
+
+    Mat add_dim_a(1, 2, CV_32FC1);
+    Mat add_dim_b(2, 2, CV_32FC1);
+    EXPECT_THROW(add_dim_a + add_dim_b, "operator+ should reject dimension mismatch");
+
+    Mat mm32(2, 2, CV_32FC1);
+    Mat mm64(2, 2, CV_64FC1);
+    EXPECT_THROW(mm32 * mm64, "operator* should reject type mismatch");
+    Mat mm8a(2, 2, CV_8UC1), mm8b(2, 2, CV_8UC1);
+    EXPECT_THROW(mm8a * mm8b, "operator* should reject unsupported non-float type");
+
+    Mat t_u8_src(2, 3, CV_8U);
+    for (int i = 0; i < 6; i++) {
+        t_u8_src.at<uchar>(i) = (uchar)(i + 1);
+    }
+    Mat *t_u8 = &t_u8_src.transpose();
+    expect_true(t_u8->rows == 3 && t_u8->cols == 2, "transpose CV_8U shape mismatch");
+    expect_true(t_u8->at<uchar>(2, 1) == t_u8_src.at<uchar>(1, 2), "transpose CV_8U value mismatch");
+    delete t_u8;
+
+    Mat t_d_src(2, 2, CV_64F);
+    t_d_src.at<double>(0, 0) = 1.0;
+    t_d_src.at<double>(0, 1) = 2.0;
+    t_d_src.at<double>(1, 0) = 3.0;
+    t_d_src.at<double>(1, 1) = 4.0;
+    Mat *t_d = &t_d_src.transpose();
+    expect_true(t_d->at<double>(0, 1) == 3.0, "transpose CV_64F mismatch");
+    delete t_d;
+
+    Mat det1(1, 1, CV_32FC1);
+    det1.at<float>(0, 0) = 7.5f;
+    expect_float_near(det1.determinant(), 7.5f, 1e-6f, "determinant 1x1 mismatch");
 }
 
 static void test_mat_refcount_stress()
@@ -823,8 +964,10 @@ void unit_test_coverage()
     test_bilateral_stability();
     test_box_filter_and_geometry();
     test_hungarian_and_random();
+    test_randn_double_path();
     test_hungarian_exhaustive();
     test_kalman_noninteractive();
+    test_kalman_control_and_init_paths();
     test_split_merge();
     test_resize_modes_and_errors();
     test_error_paths();

@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-$ROOT_DIR/build_coverage}"
 MIN_LINE="${MIN_LINE_COVERAGE:-70}"
 MIN_BRANCH="${MIN_BRANCH_COVERAGE:-50}"
-KEY_FILE_GATES="${KEY_FILE_GATES:-src/mat.cpp:72:70;src/cvtcolor/rgb2hsv.cpp:68:65;src/utils/merge.cpp:70:65}"
+KEY_FILE_GATES="${KEY_FILE_GATES:-src/mat.cpp:80:88;src/filter/filter_2d.cpp:78:82;src/algorithm/kalman_filter.cpp:95:95;src/randn.cpp:95:95;src/utils/split.cpp:90:95;src/utils/merge.cpp:90:90;src/cvtcolor/rgb2hsv.cpp:68:65}"
 
 echo "[coverage] configure: $BUILD_DIR"
 cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON >/dev/null
