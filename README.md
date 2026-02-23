@@ -138,17 +138,17 @@ Notes:
 Run the test suite:
 
 ```bash
-./tiny_opencv_test
+./build/tiny_opencv_test
 ```
 
 Optional test flags:
 
 ```bash
 # Enable window display during tests
-./tiny_opencv_test --interactive
+./build/tiny_opencv_test --interactive
 
 # Limit kalman interactive-style test steps
-./tiny_opencv_test --kalman-steps=100
+./build/tiny_opencv_test --kalman-steps=100
 ```
 
 Coverage gate (line/branch thresholds):
@@ -163,11 +163,30 @@ Customize thresholds with env vars:
 MIN_LINE_COVERAGE=75 MIN_BRANCH_COVERAGE=55 ./scripts/coverage_gate.sh
 ```
 
-Also supports per-file gates:
+Also supports per-file gates (`path:min_line:min_branch`):
 
 ```bash
-KEY_FILE_GATES="src/mat.cpp:80:75;src/cvtcolor/rgb2hsv.cpp:75:70" ./scripts/coverage_gate.sh
+KEY_FILE_GATES="src/mat.cpp:82:88;src/filter/filter_2d.cpp:92:90" ./scripts/coverage_gate.sh
 ```
+
+Run all standalone examples:
+
+```bash
+mkdir -p build/examples_bin
+for f in examples/*.cpp; do
+  name=$(basename "$f" .cpp)
+  g++ -std=c++11 -Iinclude "$f" build/libtiny_opencv.a -o "build/examples_bin/$name"
+  "build/examples_bin/$name"
+done
+```
+
+## CI
+
+GitHub Actions workflow (`.github/workflows/ci.yml`) includes:
+- Build + unit tests
+- Build + run all examples
+- Coverage gate check
+- Sanitizer jobs (`address`, `undefined`)
 
 Note: The CMake configuration currently always builds the test target and requires OpenCV to be installed and discoverable. If you only need the library and do not have OpenCV, remove/disable the `tiny_opencv_test` target in `CMakeLists.txt` or add your own CMake option to guard it.
 
