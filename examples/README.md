@@ -23,6 +23,17 @@ Run it:
 ./basic
 ```
 
+Build and run all examples:
+
+```bash
+mkdir -p ../build/examples_bin
+for f in *.cpp; do
+  name=$(basename "$f" .cpp)
+  g++ -std=c++11 -I../include "$f" ../build/libtiny_opencv.a -o "../build/examples_bin/$name"
+  "../build/examples_bin/$name"
+done
+```
+
 ## CMake Snippet
 
 If you want to build an example with CMake, you can add something like this to a local CMakeLists.txt:
