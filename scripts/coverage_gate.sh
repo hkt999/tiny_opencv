@@ -10,6 +10,7 @@ echo "[coverage] configure: $BUILD_DIR"
 cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON >/dev/null
 echo "[coverage] build"
 cmake --build "$BUILD_DIR" -j >/dev/null
+find "$BUILD_DIR" -name '*.gcda' -delete
 echo "[coverage] run tests"
 "$BUILD_DIR/tiny_opencv_test" >/dev/null
 

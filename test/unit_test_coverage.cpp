@@ -1,5 +1,9 @@
 #include <cmath>
+#include <cstdint>
+#include <cstring>
 #include <iostream>
+#include <limits>
+#include <vector>
 #include "unit_test.hpp"
 #include "tiny_opencv.hpp"
 #include "hungarian.hpp"
@@ -38,6 +42,13 @@ static void expect_hue_red(uchar got, const char *msg)
     fail_test(msg);
 }
 
+static void expect_float_near(float got, float expect, float tol, const char *msg)
+{
+    if (fabs(got - expect) > tol) {
+        fail_test(msg);
+    }
+}
+
 #define EXPECT_THROW(stmt, msg)                    \
     do {                                           \
         bool thrown = false;                       \
@@ -50,6 +61,10 @@ static void expect_hue_red(uchar got, const char *msg)
             fail_test(msg);                        \
         }                                          \
     } while (0)
+
+extern int rgb24_to_yuv420(int x_dim, int y_dim, unsigned char *bmp, unsigned char *yuv, int flip);
+extern void rgb24_to_yuv420p(uint8_t *lum, uint8_t *cb, uint8_t *cr, uint8_t *src, int width, int height);
+extern void yuv422p_to_rgb24(unsigned char *yuv422p, unsigned char *rgb, int width, int height);
 
 static void test_threshold_modes()
 {
@@ -160,6 +175,89 @@ static void test_hungarian_and_random()
     expect_true(has_diff, "randn produced constant output");
 }
 
+static void permute_min_cost_square(
+    const Mat &cost, int row, vector<int> &used, float running,
+    float &best_cost, vector<int> &assign, vector<int> &best_assign)
+{
+    int n = cost.rows;
+    if (row == n) {
+        if (running < best_cost) {
+            best_cost = running;
+            best_assign = assign;
+        }
+        return;
+    }
+
+    for (int c = 0; c < n; c++) {
+        if (used[c]) {
+            continue;
+        }
+        used[c] = 1;
+        assign[row] = c;
+        permute_min_cost_square(
+            cost, row + 1, used, running + cost.at<float>(row, c),
+            best_cost, assign, best_assign);
+        used[c] = 0;
+    }
+}
+
+static float brute_force_square_min_cost(const Mat &cost, vector<int> &best_assign)
+{
+    int n = cost.rows;
+    vector<int> used(n, 0);
+    vector<int> assign(n, -1);
+    float best_cost = numeric_limits<float>::max();
+    permute_min_cost_square(cost, 0, used, 0.0f, best_cost, assign, best_assign);
+    return best_cost;
+}
+
+static void test_hungarian_exhaustive()
+{
+    HungarianAlgorithm solver;
+
+    Mat cost_2x3(2, 3, CV_32FC1);
+    cost_2x3.at<float>(0, 0) = 8; cost_2x3.at<float>(0, 1) = 3; cost_2x3.at<float>(0, 2) = 4;
+    cost_2x3.at<float>(1, 0) = 6; cost_2x3.at<float>(1, 1) = 5; cost_2x3.at<float>(1, 2) = 2;
+    Mat assign_2x3(2, 1, CV_32FC1);
+    double cost_a = solver.Solve(cost_2x3, assign_2x3);
+    expect_true(fabs(cost_a - 5.0) < 1e-5, "hungarian 2x3 cost mismatch");
+    expect_true((int)assign_2x3.at<float>(0, 0) == 1, "hungarian 2x3 row0 mismatch");
+    expect_true((int)assign_2x3.at<float>(1, 0) == 2, "hungarian 2x3 row1 mismatch");
+
+    Mat tie(3, 3, CV_32FC1);
+    for (int r = 0; r < 3; r++) {
+        for (int c = 0; c < 3; c++) {
+            tie.at<float>(r, c) = 1.0f;
+        }
+    }
+    Mat tie_assign(3, 1, CV_32FC1);
+    double tie_cost = solver.Solve(tie, tie_assign);
+    expect_true(fabs(tie_cost - 3.0) < 1e-5, "hungarian tie cost mismatch");
+
+    Mat neg(2, 2, CV_32FC1);
+    neg.at<float>(0, 0) = -1.0f; neg.at<float>(0, 1) = 2.0f;
+    neg.at<float>(1, 0) = 3.0f;  neg.at<float>(1, 1) = 4.0f;
+    Mat neg_assign(2, 1, CV_32FC1);
+    double neg_cost = solver.Solve(neg, neg_assign);
+    expect_true(isfinite(neg_cost), "hungarian negative-cost path produced non-finite");
+
+    Mat square(4, 4, CV_32FC1);
+    float vals[16] = {
+        9, 2, 7, 8,
+        6, 4, 3, 7,
+        5, 8, 1, 8,
+        7, 6, 9, 4
+    };
+    for (int i = 0; i < 16; i++) {
+        square.at<float>(i) = vals[i];
+    }
+    Mat square_assign(4, 1, CV_32FC1);
+    double square_cost = solver.Solve(square, square_assign);
+    vector<int> brute_assign;
+    float brute_cost = brute_force_square_min_cost(square, brute_assign);
+    expect_true(fabs(square_cost - brute_cost) < 1e-5, "hungarian brute-force square cost mismatch");
+}
+
 static void test_kalman_noninteractive()
 {
     KalmanFilter kf(4, 2, 0, CV_32F);
@@ -239,6 +337,46 @@ static void test_yuv_i420_numeric()
     expect_uchar_near(bgr_back_px.c1, 255, 14, "YUV2BGR_I420 blue channel mismatch");
     expect_uchar_near(bgr_back_px.c2, 0, 14, "YUV2BGR_I420 green channel mismatch");
     expect_uchar_near(bgr_back_px.c3, 0, 14, "YUV2BGR_I420 red channel mismatch");
+}
+
+static void test_yuv_low_level_paths()
+{
+    const int w = 2, h = 2;
+    unsigned char rgb[12] = {
+        255, 0, 0, 255, 0, 0,
+        255, 0, 0, 255, 0, 0
+    };
+    unsigned char bgr[12] = {
+        0, 0, 255, 0, 0, 255,
+        0, 0, 255, 0, 0, 255
+    };
+
+    unsigned char yuv_from_rgb[6] = {0};
+    unsigned char yuv_from_bgr[6] = {0};
+    rgb24_to_yuv420(w, h, rgb, yuv_from_rgb, 0);
+    rgb24_to_yuv420(w, h, bgr, yuv_from_bgr, 1);
+    for (int i = 0; i < 6; i++) {
+        expect_true(yuv_from_rgb[i] == yuv_from_bgr[i], "rgb24_to_yuv420 flip path mismatch");
+    }
+
+    uint8_t lum[4] = {0};
+    uint8_t cb[1] = {0};
+    uint8_t cr[1] = {0};
+    rgb24_to_yuv420p(lum, cb, cr, rgb, w, h);
+    for (int i = 0; i < 4; i++) expect_uchar_near(lum[i], 76, 2, "rgb24_to_yuv420p Y mismatch");
+    expect_uchar_near(cb[0], 84, 4, "rgb24_to_yuv420p Cb mismatch");
+    expect_uchar_near(cr[0], 255, 2, "rgb24_to_yuv420p Cr mismatch");
+
+    unsigned char yuv422[8] = {
+        16, 235, 16, 235, // Y
+        128, 128,         // U
+        128, 128          // V
+    };
+    unsigned char rgb_out[12] = {0};
+    yuv422p_to_rgb24(yuv422, rgb_out, 2, 2);
+    expect_true(rgb_out[0] <= rgb_out[3], "yuv422 gray ramp mismatch");
+    expect_true(rgb_out[1] <= rgb_out[4], "yuv422 gray ramp mismatch");
+    expect_true(rgb_out[2] <= rgb_out[5], "yuv422 gray ramp mismatch");
 }
 
 static void test_hsv_numeric()
@@ -329,6 +467,21 @@ static void test_split_merge()
     bad_merge[0] = Mat(2, 2, CV_8UC1);
     bad_merge[1] = Mat(1, 2, CV_8UC1);
     EXPECT_THROW(merge(bad_merge, 2, merged), "merge should fail on shape mismatch");
+
+    Mat src_f(2, 2, CV_32FC3);
+    float *src_f_ptr = src_f.getData<float>();
+    for (int i = 0; i < 4; i++) {
+        src_f_ptr[i * 3 + 0] = (float)(i + 1);
+        src_f_ptr[i * 3 + 1] = (float)(i + 11);
+        src_f_ptr[i * 3 + 2] = (float)(i + 21);
+    }
+    Mat fch[3];
+    split(src_f, fch, 3);
+    expect_float_near(fch[1].at<float>(1, 1), 14.0f, 1e-6f, "split float channel mismatch");
+    Mat fmerge;
+    merge(fch, 3, fmerge);
+    float *fm_ptr = fmerge.getData<float>();
+    expect_float_near(fm_ptr[(1 * 2 + 1) * 3 + 2], 24.0f, 1e-6f, "merge float channel mismatch");
 }
 
 static void test_resize_modes_and_errors()
@@ -353,6 +506,24 @@ static void test_resize_modes_and_errors()
     Mat by_ratio;
     resize(src, by_ratio, Size(), 2.0f, 2.0f, INTER_NEAREST);
     expect_true(by_ratio.rows == 4 && by_ratio.cols == 4, "ratio resize shape mismatch");
+
+    Mat c3(2, 2, CV_8UC3);
+    c3.at<cv8uc3_t>(0, 0).c1 = 0;   c3.at<cv8uc3_t>(0, 0).c2 = 0;   c3.at<cv8uc3_t>(0, 0).c3 = 0;
+    c3.at<cv8uc3_t>(0, 1).c1 = 100; c3.at<cv8uc3_t>(0, 1).c2 = 20;  c3.at<cv8uc3_t>(0, 1).c3 = 10;
+    c3.at<cv8uc3_t>(1, 0).c1 = 20;  c3.at<cv8uc3_t>(1, 0).c2 = 150; c3.at<cv8uc3_t>(1, 0).c3 = 40;
+    c3.at<cv8uc3_t>(1, 1).c1 = 255; c3.at<cv8uc3_t>(1, 1).c2 = 255; c3.at<cv8uc3_t>(1, 1).c3 = 255;
+    Mat c3_linear;
+    resize(c3, c3_linear, Size(3, 3), 0.0f, 0.0f, INTER_LINEAR);
+    cv8uc3_t c = c3_linear.at<cv8uc3_t>(1, 1);
+    expect_uchar_near(c.c1, 94, 4, "linear c3 center channel0 mismatch");
+    expect_uchar_near(c.c2, 106, 4, "linear c3 center channel1 mismatch");
+    expect_uchar_near(c.c3, 76, 4, "linear c3 center channel2 mismatch");
+
+    Mat one(1, 1, CV_8UC1);
+    one.at<uchar>(0, 0) = 123;
+    Mat one_up;
+    resize(one, one_up, Size(4, 4), 0.0f, 0.0f, INTER_LINEAR);
+    expect_true(one_up.at<uchar>(3, 3) == 123, "linear 1x1 expand mismatch");
 
     EXPECT_THROW(resize(src, nearest, Size(), 0.0f, 2.0f, INTER_NEAREST), "resize should reject invalid ratio");
     EXPECT_THROW(resize(src, nearest, Size(4, 4), 0.0f, 0.0f, INTER_CUBIC), "resize should reject unsupported cubic mode");
@@ -429,6 +600,24 @@ static void test_mat_semantics()
 
     Mat m1(2, 3, CV_32FC1), m2(4, 2, CV_32FC1);
     EXPECT_THROW(m1 * m2, "operator* should reject dimension mismatch");
+
+    Mat c3(2, 2, CV_8UC3);
+    EXPECT_THROW(c3.transpose(), "transpose should reject unsupported 3-channel type");
+
+    Mat nonsquare(2, 3, CV_32FC1);
+    EXPECT_THROW(nonsquare.inverse(), "inverse should reject non-square matrix");
+
+    Mat nonf(2, 2, CV_8UC1);
+    expect_true(nonf.determinant() == 0.0f, "determinant non-float fallback mismatch");
+
+    Mat a8(2, 2, CV_8UC1), b32(2, 2, CV_32FC1);
+    EXPECT_THROW(a8 - b32, "operator- should reject type mismatch");
+
+    EXPECT_THROW(Mat::ones(2, 2, CV_64FC1), "ones should reject unsupported type");
+    EXPECT_THROW(Mat::eye(2, 2, CV_8UC3), "eye should reject multi-channel type");
+
+    Mat bad_roi_src(2, 2, CV_16UC1);
+    EXPECT_THROW(Mat(bad_roi_src, Rect(0, 0, 1, 1)), "roi constructor should reject unsupported type");
 }
 
 void unit_test_coverage()
@@ -437,12 +626,14 @@ void unit_test_coverage()
     test_threshold_modes();
     test_box_filter_and_geometry();
     test_hungarian_and_random();
+    test_hungarian_exhaustive();
     test_kalman_noninteractive();
     test_split_merge();
     test_resize_modes_and_errors();
     test_error_paths();
     test_mat_semantics();
     test_yuv_i420_numeric();
+    test_yuv_low_level_paths();
     test_hsv_numeric();
     cout << "✓ Coverage supplement test passed!" << endl;
 }
