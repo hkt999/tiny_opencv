@@ -669,6 +669,9 @@ static void test_split_merge()
     type_mismatch[0] = Mat(2, 2, CV_8UC1);
     type_mismatch[1] = Mat(2, 2, CV_32FC1);
     EXPECT_THROW(merge(type_mismatch, 2, merged), "merge should reject channel type mismatch");
+    Mat empty_second[2];
+    empty_second[0] = Mat(2, 2, CV_8UC1);
+    EXPECT_THROW(merge(empty_second, 2, merged), "merge should reject empty non-first channel");
     uchar unsupported_merge_data[1] = {9};
     Mat unsupported_merge[1];
     unsupported_merge[0] = Mat(1, 1, 7, unsupported_merge_data);
@@ -996,6 +999,44 @@ static void test_mat_cofactor_inverse_numeric()
     delete co_ns;
 }
 
+static void test_mat_identity_and_ones()
+{
+    Mat &ones8 = Mat::ones(2, 2, CV_8U);
+    expect_true(ones8.at<uchar>(0, 0) == 1 && ones8.at<uchar>(1, 1) == 1, "ones CV_8U mismatch");
+
+    Mat &ones32 = Mat::ones(2, 2, CV_32F);
+    expect_float_near(ones32.at<float>(0, 1), 1.0f, 1e-6f, "ones CV_32F mismatch");
+
+    Mat &eye8 = Mat::eye(3, 3, CV_8UC1);
+    expect_true(eye8.at<uchar>(0, 0) == 1 && eye8.at<uchar>(1, 1) == 1 && eye8.at<uchar>(2, 2) == 1, "eye CV_8U diag mismatch");
+    expect_true(eye8.at<uchar>(0, 1) == 0 && eye8.at<uchar>(2, 1) == 0, "eye CV_8U off-diag mismatch");
+
+    Mat &eye64 = Mat::eye(3, 3, CV_64FC1);
+    expect_true(fabs(eye64.at<double>(0, 0) - 1.0) < 1e-12, "eye CV_64F diag mismatch");
+    expect_true(fabs(eye64.at<double>(2, 1)) < 1e-12, "eye CV_64F off-diag mismatch");
+
+    Mat id8(3, 3, CV_8UC1);
+    memset(id8.ref->data, 9, 9);
+    setIdentity(id8);
+    expect_true(id8.at<uchar>(0, 0) == 1 && id8.at<uchar>(1, 1) == 1, "setIdentity CV_8U diag mismatch");
+    expect_true(id8.at<uchar>(0, 2) == 0 && id8.at<uchar>(2, 0) == 0, "setIdentity CV_8U off-diag mismatch");
+
+    Mat id64(3, 3, CV_64FC1);
+    for (int i = 0; i < 9; i++) {
+        id64.at<double>(i) = 3.0;
+    }
+    setIdentity(id64);
+    expect_true(fabs(id64.at<double>(0, 0) - 1.0) < 1e-12, "setIdentity CV_64F diag mismatch");
+    expect_true(fabs(id64.at<double>(1, 2)) < 1e-12, "setIdentity CV_64F off-diag mismatch");
+
+    setIdentity(id8, Scalar(7));
+    expect_true(id8.at<uchar>(0, 0) == 7 && id8.at<uchar>(1, 1) == 7, "setIdentity scalar CV_8U diag mismatch");
+
+    setIdentity(id64, Scalar(2.5));
+    expect_true(fabs(id64.at<double>(0, 0) - 2.5) < 1e-12, "setIdentity scalar CV_64F diag mismatch");
+    expect_true(fabs(id64.at<double>(2, 1)) < 1e-12, "setIdentity scalar CV_64F off-diag mismatch");
+}
+
 static void test_mat_refcount_stress()
 {
     Mat base(4, 4, CV_8UC1);
@@ -1057,6 +1098,7 @@ void unit_test_coverage()
     test_error_paths();
     test_mat_semantics();
     test_mat_cofactor_inverse_numeric();
+    test_mat_identity_and_ones();
     test_mat_refcount_stress();
     test_yuv_i420_numeric();
     test_yuv_low_level_paths();
