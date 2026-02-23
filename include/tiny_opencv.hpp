@@ -265,7 +265,7 @@ class Mat
 
 	public:
 		// member functions
-		const inline bool empty() const { return (ref->data == 0) || ((cols == 0) && (rows==0)); }
+		const inline bool empty() const { return (ref == 0) || (ref->data == 0) || ((cols == 0) && (rows==0)); }
 		inline int channels() const { return (type/8)+1; }
 		inline int depth() { return (type%8); }
 		inline int dims() { return 2; } // only supports 2 channels (row/col)

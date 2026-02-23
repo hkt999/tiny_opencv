@@ -39,10 +39,15 @@ A lightweight C++ computer vision library that provides essential image processi
 ### Build Instructions
 
 ```bash
-mkdir build
-cd build
-cmake ..
-make
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build -j
+```
+
+Release build:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
 ```
 
 This will create:
@@ -51,78 +56,26 @@ This will create:
 
 ## Usage
 
-### Basic Example
+### CMake Integration (Library Only)
 
-```cpp
-#include "tiny_opencv.hpp"
-using namespace KCV;
-
-// Create a matrix
-Mat img(480, 640, CV_8UC3);
-
-// Color conversion
-Mat gray;
-cvtColor(img, gray, CV_BGR2GRAY);
-
-// Apply Gaussian blur
-Mat blurred;
-gaussianBlur(img, blurred, Size(5, 5), 1.0);
-
-// Resize image
-Mat resized;
-resize(img, resized, Size(320, 240));
+```cmake
+add_subdirectory(path/to/tiny_opencv)
+target_link_libraries(your_app PRIVATE tiny_opencv)
+target_include_directories(your_app PRIVATE path/to/tiny_opencv/include)
 ```
 
-### Kalman Filter Example
+### Examples
 
-```cpp
-#include "kalman_filter.hpp"
-
-// Initialize 2D Kalman filter
-kalman_filter_t *kf = kalman_filter_alloc(4, 2);
-kalman_filter_init(kf);
-
-// Update with measurement
-point_t measurement = {x, y};
-point_t prediction = kalman_filter_update(kf, measurement);
-
-kalman_filter_free(kf);
-```
-
-### Matrix Operations
-
-```cpp
-// Create identity matrix
-Mat identity = Mat::eye(3, 3, CV_32FC1);
-
-// Matrix multiplication and inversion
-Mat result = matrix1 * matrix2;
-Mat inverted = matrix.inverse();
-
-// Element access
-float value = matrix.at<float>(row, col);
-```
-
-### Color Blob Detection Example
-
-```cpp
-#include "tiny_opencv.hpp"
-using namespace KCV;
-
-// Load color image
-Mat colorImage;
-
-// Detect red blobs (BGR format: B=0-10, G=0-10, R=240-255)
-Mat redMask;
-inRange(colorImage, Scalar(0, 0, 240), Scalar(10, 10, 255), redMask);
-
-// Detect specific grayscale range (100-150)
-Mat grayImage, grayMask;
-cvtColor(colorImage, grayImage, CV_BGR2GRAY);
-inRange(grayImage, Scalar(100), Scalar(150), grayMask);
-
-// Result is binary image: 255 for pixels in range, 0 otherwise
-```
+See `examples/` for standalone snippets:
+- `examples/basic.cpp`: Basic image ops (cvtColor, blur, resize)
+- `examples/kalman_filter.cpp`: Kalman filter usage
+- `examples/hungarian.cpp`: Hungarian assignment solver
+- `examples/hough_lines.cpp`: Hough line transform
+- `examples/geometric_transform.cpp`: Rotation and affine matrices
+- `examples/matrix_ops.cpp`: Matrix ops (eye, multiply, inverse, access)
+- `examples/inrange.cpp`: Color blob detection
+- `examples/filter2d.cpp`: Custom kernel filter2D
+- `examples/threshold.cpp`: Thresholding
 
 ## API Reference
 
@@ -172,6 +125,10 @@ void inRange(const Mat src, const Scalar lowerb, const Scalar upperb, Mat &dst);
 | CV_32FC1 | 5 | 32-bit float, 1 channel |
 | CV_32FC3 | 21 | 32-bit float, 3 channels |
 
+Notes:
+- Types outside the table are not implemented and may produce undefined behavior.
+- Many image processing functions are optimized for `CV_8UC1` and `CV_8UC3` inputs.
+
 ## Testing
 
 Run the test suite:
@@ -179,6 +136,8 @@ Run the test suite:
 ```bash
 ./tiny_opencv_test
 ```
+
+Note: The CMake configuration currently always builds the test target and requires OpenCV to be installed and discoverable. If you only need the library and do not have OpenCV, remove/disable the `tiny_opencv_test` target in `CMakeLists.txt` or add your own CMake option to guard it.
 
 The test program demonstrates various functionalities including:
 - Color space conversions
@@ -196,3 +155,7 @@ This project is released under the MIT License. See the LICENSE file for details
 - **Core Library**: No external dependencies
 - **QR Code Detection**: Built-in quirc library
 - **Testing**: OpenCV (for comparison and visualization only)
+
+## Third-Party
+
+- **quirc**: Embedded QR code decoder used by the QR detection feature. Please ensure its upstream license is compatible with your use.

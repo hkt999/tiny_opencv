@@ -1,10 +1,20 @@
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/types_c.h>
+#include <cstring>
 #include "unit_test.hpp"
 
 using namespace cv;
 using namespace std;
+
+static bool g_interactive = false;
+
+static inline void showImage(const char *name, const Mat &img)
+{
+	if (g_interactive) {
+		imshow(name, img);
+	}
+}
 
 #if 0
 +--------+----+----+----+----+------+------+------+------+
@@ -38,10 +48,10 @@ void mat_test_bgr_gray(Mat &img)
 	void *bgr = unit_test_gray2bgr(gray, img.cols, img.rows);
 
 	Mat gray_img(img.rows, img.cols, CV_8UC1, gray);
-	imshow("BGR24 to Gray", gray_img);
+	showImage("BGR24 to Gray", gray_img);
 
 	Mat bgr_img(img.rows, img.cols, CV_8UC3, bgr);
-	imshow("Gray to BGR24", bgr_img);
+	showImage("Gray to BGR24", bgr_img);
 	free(gray);
 	free(bgr);
 }
@@ -52,10 +62,10 @@ void mat_test_bgr_yuv(Mat &img)
 	void *bgr = unit_test_yuv2bgr_i420(yuv, img.cols, img.rows);
 
 	Mat yuv_img(img.rows*3/2, img.cols, CV_8UC1, yuv);
-	imshow("BGR24 to I420", yuv_img);
+	showImage("BGR24 to I420", yuv_img);
 
 	Mat rgb_img(img.rows, img.cols, CV_8UC3, bgr);
-	imshow("I420 to BGR24", rgb_img);
+	showImage("I420 to BGR24", rgb_img);
 
 	free(yuv);
 	free(bgr);
@@ -67,10 +77,10 @@ void mat_test_rgb_gray(Mat &img)
 	void *rgb = unit_test_gray2bgr(gray, img.cols, img.rows);
 
 	Mat gray_img(img.rows, img.cols, CV_8UC1, gray);
-	imshow("RGB24 to Gray", gray_img);
+	showImage("RGB24 to Gray", gray_img);
 
 	Mat rgb_img(img.rows, img.cols, CV_8UC3, rgb);
-	imshow("Gray to RGB24", rgb_img);
+	showImage("Gray to RGB24", rgb_img);
 	free(gray);
 	free(rgb);
 }
@@ -81,10 +91,10 @@ void mat_test_rgb_yuv(Mat &img)
 	void *rgb = unit_test_yuv2rgb_i420(yuv, img.cols, img.rows);
 
 	Mat yuv_img(img.rows*3/2, img.cols, CV_8UC1, yuv);
-	imshow("RGB24 to I420", yuv_img);
+	showImage("RGB24 to I420", yuv_img);
 
 	Mat rgb_img(img.rows, img.cols, CV_8UC3, rgb);
-	imshow("I420 to RGB24", rgb_img);
+	showImage("I420 to RGB24", rgb_img);
 
 	free(yuv);
 	free(rgb);
@@ -96,10 +106,10 @@ void mat_test_rgb_bgr(Mat &img)
 	void *bgr = unit_test_rgb2bgr(rgb, img.cols, img.rows);
 
 	Mat rgb_img(img.rows, img.cols, CV_8UC3, rgb);
-	imshow("BGR to RGB", rgb_img);
+	showImage("BGR to RGB", rgb_img);
 
 	Mat bgr_img(img.rows, img.cols, CV_8UC3, bgr);
-	imshow("RGB to BGR", bgr_img);
+	showImage("RGB to BGR", bgr_img);
 
 	free(rgb);
 	free(bgr);
@@ -110,11 +120,11 @@ void mat_test_equalize_hist(Mat &img)
 {
 	Mat g;
 	cvtColor(img, g, CV_BGR2GRAY);
-	imshow("Original Gray", g);
+	showImage("Original Gray", g);
 
 	void *gray = unit_test_equalize_hist(g.data, g.cols, g.rows);
 	Mat gray_img(g.rows, g.cols, CV_8UC1, gray);
-	imshow("Histogram Equalized", gray_img);
+	showImage("Histogram Equalized", gray_img);
 
 	free(gray);
 }
@@ -124,11 +134,11 @@ void mat_test_blur_c1(Mat &img)
 {
 	Mat g;
 	cvtColor(img, g, CV_BGR2GRAY);
-	imshow("Original Gray", g);
+	showImage("Original Gray", g);
 
 	void *gray = unit_test_blur_c1(g.data, g.cols, g.rows, 5, 5);
 	Mat gray_img(g.rows, g.cols, CV_8UC1, gray);
-	imshow("Blur 5x5 C1", gray_img);
+	showImage("Blur 5x5 C1", gray_img);
 
 	free(gray);
 }
@@ -137,7 +147,7 @@ void mat_test_blur_c3(Mat &img)
 {
 	void *c3 = unit_test_blur_c3(img.data, img.cols, img.rows, 5, 5);
 	Mat g( img.rows, img.cols, CV_8UC3, c3);
-	imshow("Blur 5x5 C3", g);
+	showImage("Blur 5x5 C3", g);
 	free(c3);
 }
 
@@ -155,7 +165,7 @@ void mat_test_filter2d_c1(Mat &img)
 	Mat g;
 	void *c1 = unit_test_filter2d_c1(img.data, img.cols, img.rows, 5, 5, kernel_5x5);
 	cvtColor( img, g, CV_BGR2GRAY);
-	imshow("filter2D 5x5 C1", g);
+	showImage("filter2D 5x5 C1", g);
 	free(c1);
 }
 
@@ -163,7 +173,7 @@ void mat_test_filter2d_c3(Mat &img)
 {
 	void *c3 = unit_test_filter2d_c3(img.data, img.cols, img.rows, 5, 5, kernel_5x5);
 	Mat g( img.rows, img.cols, CV_8UC3, c3);
-	imshow("filter2D 5x5 C3", g);
+	showImage("filter2D 5x5 C3", g);
 	free(c3);
 }
 
@@ -176,7 +186,7 @@ void mat_test_gaussian_c1(Mat &img)
 {
 	void *c1 = unit_test_gaussian_c1(img.data, img.cols, img.rows, 5, 0);
 	Mat g( img.rows, img.cols, CV_8UC1, c1);
-	imshow("Gaussian 5x5 C1", g);
+	showImage("Gaussian 5x5 C1", g);
 	free(c1);
 }
 
@@ -184,7 +194,7 @@ void mat_test_gaussian_c3(Mat &img)
 {
 	void *c3 = unit_test_gaussian_c3(img.data, img.cols, img.rows, 5, 0);
 	Mat g( img.rows, img.cols, CV_8UC3, c3);
-	imshow("Gaussian 5x5 C1", g);
+	showImage("Gaussian 5x5 C1", g);
 	free(c3);
 }
 
@@ -195,7 +205,7 @@ void mat_test_bilateral_c1(Mat &img)
 
 	void *c1 = unit_test_bilateral_c1(gray.data, gray.cols, gray.rows, 2, 1.0, 1.0);
 	Mat g(img.rows, img.cols, CV_8UC1, c1);
-	imshow("Bilateral Filter (C1)", g);
+	showImage("Bilateral Filter (C1)", g);
 	free(c1);
 }
 
@@ -203,7 +213,7 @@ void mat_test_bilateral_c3(Mat &img)
 {
 	void *c3 = unit_test_bilateral_c3(img.data, img.cols, img.rows, 2, 1.0, 1.0);
 	Mat g(img.rows, img.cols, CV_8UC3, c3);
-	imshow("Bilateral Filter (C3)", g);
+	showImage("Bilateral Filter (C3)", g);
 	free(c3);
 }
 
@@ -214,7 +224,7 @@ void mat_test_median_filter_c1(Mat &img)
 
 	void *c1 = unit_test_median_blue_c1(gray.data, gray.cols, gray.rows, 5);
 	Mat g(img.rows, img.cols, CV_8UC1, c1);
-	imshow("Median Filter 5x5 (C1)", g);
+	showImage("Median Filter 5x5 (C1)", g);
 	free(c1);
 }
 
@@ -222,7 +232,7 @@ void mat_test_median_filter_c3(Mat &img)
 {
 	void *c3 = unit_test_median_blue_c3(img.data, img.cols, img.rows, 5);
 	Mat g(img.rows, img.cols, CV_8UC3, c3);
-	imshow("Median Filter 5x5 (C3)", g);
+	showImage("Median Filter 5x5 (C3)", g);
 	free(c3);
 }
 
@@ -235,7 +245,7 @@ void mat_test_resize_c1(Mat &img)
 	cvtColor(img, gray, CV_BGR2GRAY);
 	void *c1 = unit_test_resize_c1(gray.data, gray.cols, gray.rows, RESIZE_WIDTH, RESIZE_HEIGHT);
 	Mat g(RESIZE_HEIGHT, RESIZE_WIDTH, CV_8UC1, c1);
-	imshow("Resize filter (C1)", g);
+	showImage("Resize filter (C1)", g);
 	free(c1);
 }
 
@@ -243,7 +253,7 @@ void mat_test_resize_c3(Mat &img)
 {
 	void *c3 = unit_test_resize_c3(img.data, img.cols, img.rows, RESIZE_WIDTH, RESIZE_HEIGHT);
 	Mat g(RESIZE_HEIGHT, RESIZE_WIDTH, CV_8UC3, c3);
-	imshow("Resize (C3)", g);
+	showImage("Resize (C3)", g);
 	free(c3);
 }
 
@@ -254,7 +264,7 @@ void mat_test_crop_c1(Mat &img)
 
 	void *c1 = unit_test_crop_c1(gray.data, gray.cols, gray.rows, 100, 100, 400, 400);
 	Mat g(400, 400, CV_8UC1, c1);
-	imshow("Crop (100,100,400,400) C1", g);
+	showImage("Crop (100,100,400,400) C1", g);
 	free(c1);
 }
 
@@ -262,7 +272,7 @@ void mat_test_crop_c3(Mat &img)
 {
 	void *c3 = unit_test_crop_c3(img.data, img.cols, img.rows, 100, 100, 400, 400);
 	Mat g(400, 400, CV_8UC3, c3);
-	imshow("Crop (100,100,400,400) C3", g);
+	showImage("Crop (100,100,400,400) C3", g);
 	free(c3);
 }
 
@@ -288,6 +298,10 @@ void mouseHandler( int e, int x, int y, int d, void *ptr)
 // Kalman tester callback for drawing points
 void cv_draw_frame(void *data, point_t observed, point_t predicted, point_t actual_to)
 {
+	if (!g_interactive) {
+		return;
+	}
+
 	kalman_test_t *obj = (kalman_test_t *)data;
 	printf("cb observed(%d, %d), predicted(%d, %d), actual_to(%d, %d)\n",
 		observed.x, observed.y,
@@ -305,22 +319,24 @@ void cv_draw_frame(void *data, point_t observed, point_t predicted, point_t actu
     circle(*obj->img, Point(observed.x, observed.y), 4, cv::Scalar(128, 255, 255));  // observed
     circle(*obj->img, Point(predicted.x, predicted.y), 4, cv::Scalar(255, 255, 255), 2);  // predicted
     circle(*obj->img, Point(actual_to.x, actual_to.y), 4, cv::Scalar(0, 0, 255));  // actual to
-    imshow("Kalman", *obj->img);
+    showImage("Kalman", *obj->img);
 
 	if ((cv::waitKey(100) & 255) == 27) {
 		exit(0);
     }
 }
 
-void static_test()
+void static_test(bool interactive)
 {
+	g_interactive = interactive;
+
 	Mat img = imread("test/lena.jpg", cv::IMREAD_COLOR);
 	if (img.empty()) {
 		printf("image cannot be loaded...\n");
 		exit(1);
 	}
 	cout << "img:type=" << color2str(img.type()) << endl;
-	imshow("Original Image", img);
+	showImage("Original Image", img);
 
 	mat_test_bgr_gray(img);
 	mat_test_bgr_yuv(img);
@@ -347,7 +363,9 @@ void static_test()
 	unit_test_inverse_matrix();
 	unit_test_hough_lines();
 	unit_test_in_range();
-	waitKey(0);
+	if (interactive) {
+		waitKey(0);
+	}
 	destroyAllWindows();
 }
 int main(int argc, const char **argv)
@@ -355,7 +373,9 @@ int main(int argc, const char **argv)
 	kalman_test_t obj;
 
 	memset(&obj, 0, sizeof(kalman_test_t));
-	static_test();
+	bool interactive = (argc > 1) && (strcmp(argv[1], "--interactive") == 0);
+	static_test(interactive);
 	//unit_test_kalman_filter_angle(&obj, cv_draw_frame);
 	//unit_test_kalman_filter_mouse(&obj, cv_draw_frame, cv_get_mouse);
+	return 0;
 }

@@ -20,7 +20,7 @@ void Mat::createBuffer()
     }
 
     ref = (DataRef *)malloc(sizeof(DataRef));
-    ref->count++;
+    ref->count = 1;
     ref->data = malloc( cols * rows * elemSize());
 }
 
@@ -56,7 +56,9 @@ Mat::Mat(Size size, int type): rows(size.height), cols(size.width), type(type), 
 
 Mat::Mat(const Mat &m): rows(m.rows), cols(m.cols), type(m.type), ref(m.ref)
 {
-    ref->count++;
+    if (ref) {
+        ref->count++;
+    }
 }
 
 Mat::Mat(int rows, int cols, int type, void *data): rows(rows), cols(cols), type(type)
@@ -125,6 +127,12 @@ Mat::~Mat()
 // operator
 Mat& Mat::operator=(const Mat& m)
 {
+    if (this == &m) {
+        return *this;
+    }
+
+    release();
+
     rows = m.rows;
     cols = m.cols;
     type = m.type;
@@ -142,7 +150,6 @@ Mat& Mat::operator+(const Mat &m) const
         throw Exception("operator + dimention is mismatched");
 
     Mat *t = new Mat(rows, cols, type);
-    t->createBuffer();
 
     if (type == CV_32F) {
         float *dst = t->getData<float>(), *a = getData<float>(), *b = m.getData<float>();
@@ -180,7 +187,6 @@ Mat& Mat::operator-(const Mat &m) const
         throw Exception("type mismatch for matrix type");
 
     Mat *t = new Mat(rows, cols, type);
-    t->createBuffer();
 
     if (type == CV_32F) {
         float *dst = t->getData<float>(), *a = getData<float>(), *b = m.getData<float>();
@@ -221,9 +227,6 @@ Mat& Mat::operator*(const Mat& m) const
 Mat& Mat::clone()
 {
     Mat *m = new Mat(rows, cols, type);
-
-    // create buffer
-    m->createBuffer();
 
     // copy data
     memcpy(m->ptr(), ptr(), cols * rows * elemSize());
@@ -437,16 +440,17 @@ Mat& Mat::inverse()
 Mat& Mat::zeros(int cols, int rows, int type)
 {
     Mat *t = new Mat(cols, rows, type);
-    t->createBuffer();
     bzero(t->ref->data, cols * rows * t->elemSize());
 
     return *t;
 }
 
-template <typename _Tp> inline void onesRow(Mat &dst)
+template <typename _Tp> inline void fillOnes(Mat &dst)
 {
-    for (int i=0; i<dst.rows; i++) {
-        dst.at<_Tp>(i, 0) = 1;
+    _Tp *data = dst.getData<_Tp>();
+    int count = dst.rows * dst.cols * dst.channels();
+    while (count-- > 0) {
+        *data++ = (_Tp)1;
     }
 }
 
@@ -455,11 +459,11 @@ Mat& Mat::ones(int cols, int rows, int type)
     Mat &t = zeros(cols, rows, type);
     switch (t.depth()) {
         case CV_8U:
-            onesRow<uchar>(t);
+            fillOnes<uchar>(t);
             break;
 
         case CV_32F:
-            onesRow<float>(t);
+            fillOnes<float>(t);
             break;
 
         default:
@@ -472,11 +476,38 @@ Mat& Mat::ones(int cols, int rows, int type)
 Mat& Mat::eye(int i_rows, int i_cols, int type)
 {
     Mat &t = zeros(i_rows, i_cols, type);
-    float *d = t.getData<float>();
+    if (t.channels() != 1) {
+        throw Exception("eye only supports single channel matrices");
+    }
+
     int count = MIN(i_rows, i_cols);
-    while (count-->0) {
-        *d = 1;
-        d = d + t.cols + 1;
+    switch (t.depth()) {
+        case CV_8U: {
+            uchar *d = t.getData<uchar>();
+            while (count-- > 0) {
+                *d = 1;
+                d = d + t.cols + 1;
+            }
+            break;
+        }
+        case CV_32F: {
+            float *d = t.getData<float>();
+            while (count-- > 0) {
+                *d = 1.0f;
+                d = d + t.cols + 1;
+            }
+            break;
+        }
+        case CV_64F: {
+            double *d = t.getData<double>();
+            while (count-- > 0) {
+                *d = 1.0;
+                d = d + t.cols + 1;
+            }
+            break;
+        }
+        default:
+            throw Exception("eye doesn't support this type");
     }
     return t;
 }
