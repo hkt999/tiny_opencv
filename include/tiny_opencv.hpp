@@ -185,6 +185,7 @@ typedef struct _8uc3_t {
 typedef struct _DataRef {
 	void *data;
 	int count;
+	bool own_data;
 } DataRef;
 
 class Scalar {

@@ -1,4 +1,5 @@
 #include <cmath>
+#include <cstdlib>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -692,6 +693,28 @@ static void test_mat_semantics()
 
     Mat bad_roi_src(2, 2, CV_16UC1);
     EXPECT_THROW(Mat(bad_roi_src, Rect(0, 0, 1, 1)), "roi constructor should reject unsupported type");
+
+    uchar *external = (uchar *)malloc(4);
+    external[0] = 1; external[1] = 2; external[2] = 3; external[3] = 4;
+    {
+        Mat wrapped(2, 2, CV_8UC1, external);
+        expect_true(wrapped.ref != 0, "wrapped mat ref should not be null");
+        expect_true(wrapped.ref->count == 1, "wrapped mat initial refcount mismatch");
+
+        Mat cpy = wrapped;
+        expect_true(wrapped.ref->count == 2, "wrapped mat copy refcount mismatch");
+        cpy.release();
+        expect_true(wrapped.ref->count == 1, "wrapped mat refcount after release mismatch");
+
+        Mat assigned;
+        assigned = wrapped;
+        expect_true(wrapped.ref->count == 2, "wrapped mat assign refcount mismatch");
+        assigned.release();
+        expect_true(wrapped.ref->count == 1, "wrapped mat refcount after assign release mismatch");
+    }
+    external[0] = 9;
+    expect_true(external[0] == 9, "wrapped external buffer should remain valid");
+    free(external);
 }
 
 void unit_test_coverage()

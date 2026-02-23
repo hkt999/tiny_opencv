@@ -5,22 +5,32 @@
 
 namespace KCV {
 
+static void release_data_ref(DataRef *&ref)
+{
+    if (ref == 0) {
+        return;
+    }
+
+    if (--ref->count <= 0) {
+        if (ref->own_data && ref->data) {
+            free(ref->data);
+        }
+        free(ref);
+    }
+    ref = 0;
+}
+
 Mat::Mat(): rows(0), cols(0), type(0), ref(0)
 {
 }
 
 void Mat::createBuffer()
 {
-    if (ref) {
-        if (--ref->count <=0 ) {
-            free(ref->data);
-            free(ref);
-            ref = 0;
-        }
-    }
+    release_data_ref(ref);
 
     ref = (DataRef *)malloc(sizeof(DataRef));
     ref->count = 1;
+    ref->own_data = true;
     ref->data = malloc( cols * rows * elemSize());
 }
 
@@ -35,13 +45,7 @@ void Mat::create(int _rows, int _cols, int _type)
 
 void Mat::release()
 {
-    if (ref) {
-        if (--ref->count <= 0) {
-            free(ref->data);
-            free(ref);
-            ref = 0;
-        }
-    }
+    release_data_ref(ref);
 }
 
 Mat::Mat(int rows, int cols, int type): rows(rows), cols(cols), type(type), ref(0)
@@ -64,14 +68,16 @@ Mat::Mat(const Mat &m): rows(m.rows), cols(m.cols), type(m.type), ref(m.ref)
 Mat::Mat(int rows, int cols, int type, void *data): rows(rows), cols(cols), type(type)
 {
     ref = (DataRef *)malloc(sizeof(DataRef));
-    ref->count = 2; // default reference count
+    ref->count = 1;
+    ref->own_data = false;
     ref->data = data;
 }
 
 Mat::Mat(Size size, int type, void *data): rows(size.height), cols(size.width), type(type)
 {
     ref = (DataRef *)malloc(sizeof(DataRef));
-    ref->count = 2; // default reference count
+    ref->count = 1;
+    ref->own_data = false;
     ref->data = data;
 }
 
@@ -115,13 +121,7 @@ Mat::Mat(const Mat &m, const Rect &roi):cols(roi.width), rows(roi.height), type(
 // destructor
 Mat::~Mat()
 {
-    if (ref) {
-        if (--ref->count <= 0) {
-            free(ref->data);
-            free(ref);
-            ref = 0;
-        }
-    }
+    release_data_ref(ref);
 }
 
 // operator

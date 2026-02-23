@@ -123,13 +123,8 @@ void bilateralFilter(const Mat src, Mat &dst, int d, double sigmaColor, double s
             break;
 
         default:
+            dst.release();
             dst.rows = dst.cols = 0;
-            if (--dst.ref->count <= 0) {
-                free(dst.ref->data);
-                dst.ref->data = 0;
-                free(dst.ref);
-                dst.ref = 0;
-            }
     }
 }
 

@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ pkg-config libopencv-dev
+
+      - name: Build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build -j
+
+      - name: Run Unit Tests
+        run: ./build/tiny_opencv_test
+
+      - name: Build and Run Examples
+        run: |
+          mkdir -p /tmp/tiny_opencv_examples_bin
+          for f in examples/*.cpp; do
+            name=$(basename "$f" .cpp)
+            g++ -std=c++11 -Iinclude "$f" build/libtiny_opencv.a -o "/tmp/tiny_opencv_examples_bin/$name"
+            "/tmp/tiny_opencv_examples_bin/$name"
+          done
+
+      - name: Coverage Gate
+        run: ./scripts/coverage_gate.sh
