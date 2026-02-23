@@ -1,12 +1,19 @@
-name: CI
+name: Extended CI
 
 on:
   push:
-  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: extended-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-test:
-    runs-on: ubuntu-latest
+  coverage:
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout
@@ -17,16 +24,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake g++ pkg-config libopencv-dev
 
-      - name: Build
+      - name: Build and Run Examples
         run: |
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
           cmake --build build -j
-
-      - name: Run Unit Tests
-        run: ./build/tiny_opencv_test
-
-      - name: Build and Run Examples
-        run: |
           mkdir -p /tmp/tiny_opencv_examples_bin
           for f in examples/*.cpp; do
             name=$(basename "$f" .cpp)
@@ -35,10 +36,23 @@ jobs:
           done
 
       - name: Coverage Gate
-        run: ./scripts/coverage_gate.sh
+        run: |
+          ./scripts/coverage_gate.sh | tee coverage_gate.log
+
+      - name: Coverage Summary
+        run: |
+          echo "## Coverage Gate" >> "$GITHUB_STEP_SUMMARY"
+          grep '^\[coverage\]' coverage_gate.log >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Coverage Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-gate-log
+          path: coverage_gate.log
 
   sanitizer:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -68,4 +82,12 @@ jobs:
           cmake --build build_san -j
 
       - name: Run Unit Tests (${{ matrix.san }})
-        run: ./build_san/tiny_opencv_test
+        run: |
+          ./build_san/tiny_opencv_test | tee "sanitizer_${{ matrix.san }}.log"
+
+      - name: Upload Sanitizer Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sanitizer-${{ matrix.san }}-log
+          path: sanitizer_${{ matrix.san }}.log

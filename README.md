@@ -182,11 +182,14 @@ done
 
 ## CI
 
-GitHub Actions workflow (`.github/workflows/ci.yml`) includes:
-- Build + unit tests
-- Build + run all examples
-- Coverage gate check
-- Sanitizer jobs (`address`, `undefined`)
+GitHub Actions workflows:
+- `/.github/workflows/ci-pr.yml` (trigger: pull_request)
+  - Linux (`ubuntu-22.04`) build + unit tests
+  - Build + run all examples
+  - Compiler matrix (`gcc`, `clang`)
+- `/.github/workflows/ci-extended.yml` (trigger: push to `main`, nightly schedule, manual)
+  - Coverage gate check + coverage summary artifact
+  - Sanitizer jobs (`address`, `undefined`) + sanitizer log artifacts
 
 Note: The CMake configuration currently always builds the test target and requires OpenCV to be installed and discoverable. If you only need the library and do not have OpenCV, remove/disable the `tiny_opencv_test` target in `CMakeLists.txt` or add your own CMake option to guard it.
 

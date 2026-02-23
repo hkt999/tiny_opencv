@@ -1,0 +1,54 @@
+name: PR CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: pr-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: build-test (${{ matrix.compiler }})
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ clang pkg-config libopencv-dev
+
+      - name: Select Compiler
+        run: |
+          if [ "${{ matrix.compiler }}" = "clang" ]; then
+            echo "CC=clang" >> "$GITHUB_ENV"
+            echo "CXX=clang++" >> "$GITHUB_ENV"
+          else
+            echo "CC=gcc" >> "$GITHUB_ENV"
+            echo "CXX=g++" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build -j
+
+      - name: Run Unit Tests
+        run: ./build/tiny_opencv_test
+
+      - name: Build and Run Examples
+        run: |
+          mkdir -p /tmp/tiny_opencv_examples_bin
+          for f in examples/*.cpp; do
+            name=$(basename "$f" .cpp)
+            "$CXX" -std=c++11 -Iinclude "$f" build/libtiny_opencv.a -o "/tmp/tiny_opencv_examples_bin/$name"
+            "/tmp/tiny_opencv_examples_bin/$name"
+          done
