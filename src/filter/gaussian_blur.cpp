@@ -5,32 +5,35 @@
 
 namespace KCV {
  
-static void create_gaussian_matrix(float *kernel, int cols, int rows, double sigma = 1.0)
+static void create_gaussian_matrix(float *kernel, int cols, int rows, double sigma_x = 1.0, double sigma_y = 1.0)
 {
-    // set standard deviation to 1.0
-    double r, s = 2.0 * sigma * sigma;
-    int pad = cols / 2;
- 
-    // sum is for normalization
+    if (sigma_x <= 0.0)
+        sigma_x = 1.0;
+    if (sigma_y <= 0.0)
+        sigma_y = sigma_x;
+
+    const double cx = (cols - 1) * 0.5;
+    const double cy = (rows - 1) * 0.5;
+    const double sxx = 2.0 * sigma_x * sigma_x;
+    const double syy = 2.0 * sigma_y * sigma_y;
+    const double norm = 1.0 / (2.0 * M_PI * sigma_x * sigma_y);
     double sum = 0.0;
- 
-    // generate gaussian kernel
-    float *k = (float *)kernel;
-    for(int y = -pad; y <= pad; y++) {
-        for (int x = -pad; x <= 2; x++) {
-            r = sqrt(x*x + y*y);
-            *k = (exp(-(r*r)/s))/(M_PI * s);
-            sum += *k;
+
+    float *k = kernel;
+    for (int y = 0; y < rows; y++) {
+        for (int x = 0; x < cols; x++) {
+            const double dx = x - cx;
+            const double dy = y - cy;
+            const double v = norm * exp(-(dx * dx / sxx + dy * dy / syy));
+            *k = (float)v;
+            sum += v;
             k++;
         }
     }
- 
-    // normalize the Kernel
-    int count = cols * rows;
-    k = kernel;
-    while (count-->0) {
-        *k = *k / sum;
-        k++;
+
+    const int count = cols * rows;
+    for (int i = 0; i < count; i++) {
+        kernel[i] = (float)(kernel[i] / sum);
     }
 }
 
@@ -44,7 +47,7 @@ void gaussianBlur(const Mat src, Mat &dst, Size ksize, double sigmaX, double sig
 
     /* build kernel */
     Mat kernel(ksize.width, ksize.height, CV_32FC1);
-    create_gaussian_matrix((float *)kernel.ref->data, ksize.width, ksize.height, sigmaX);
+    create_gaussian_matrix((float *)kernel.ref->data, ksize.width, ksize.height, sigmaX, sigmaY);
     filter2D(src, dst, -1, kernel);
 }
 

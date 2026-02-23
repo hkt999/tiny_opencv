@@ -214,6 +214,68 @@ static void test_box_filter_and_geometry()
     }
 }
 
+static void test_filter_minimal_cases()
+{
+    Mat src1(3, 3, CV_8UC1);
+    for (int i = 0; i < 9; i++) {
+        src1.at<uchar>(i) = (uchar)(i * 7 + 3);
+    }
+    Mat src3(3, 3, CV_8UC3);
+    for (int i = 0; i < 9; i++) {
+        src3.at<cv8uc3_t>(i).c1 = (uchar)(10 + i);
+        src3.at<cv8uc3_t>(i).c2 = (uchar)(30 + i * 2);
+        src3.at<cv8uc3_t>(i).c3 = (uchar)(200 - i);
+    }
+
+    Mat d1, d3;
+    blur(src1, d1, Size(1, 1));
+    blur(src3, d3, Size(1, 1));
+    for (int i = 0; i < 9; i++) {
+        expect_true(d1.at<uchar>(i) == src1.at<uchar>(i), "blur 1x1 c1 mismatch");
+        cv8uc3_t a = d3.at<cv8uc3_t>(i);
+        cv8uc3_t b = src3.at<cv8uc3_t>(i);
+        expect_true(a.c1 == b.c1 && a.c2 == b.c2 && a.c3 == b.c3, "blur 1x1 c3 mismatch");
+    }
+
+    gaussianBlur(src1, d1, Size(1, 1), 0.0, 0.0);
+    gaussianBlur(src3, d3, Size(1, 1), 0.0, 0.0);
+    for (int i = 0; i < 9; i++) {
+        expect_uchar_near(d1.at<uchar>(i), src1.at<uchar>(i), 1, "gaussian 1x1 c1 mismatch");
+        cv8uc3_t a = d3.at<cv8uc3_t>(i);
+        cv8uc3_t b = src3.at<cv8uc3_t>(i);
+        expect_uchar_near(a.c1, b.c1, 1, "gaussian 1x1 c3 c1 mismatch");
+        expect_uchar_near(a.c2, b.c2, 1, "gaussian 1x1 c3 c2 mismatch");
+        expect_uchar_near(a.c3, b.c3, 1, "gaussian 1x1 c3 c3 mismatch");
+    }
+
+    medianBlur(src1, d1, 1);
+    medianBlur(src3, d3, 1);
+    for (int i = 0; i < 9; i++) {
+        expect_true(d1.at<uchar>(i) == src1.at<uchar>(i), "median 1x1 c1 mismatch");
+        cv8uc3_t a = d3.at<cv8uc3_t>(i);
+        cv8uc3_t b = src3.at<cv8uc3_t>(i);
+        expect_true(a.c1 == b.c1 && a.c2 == b.c2 && a.c3 == b.c3, "median 1x1 c3 mismatch");
+    }
+
+    bilateralFilter(src1, d1, 1, 2.0, 2.0);
+    bilateralFilter(src3, d3, 1, 2.0, 2.0);
+    for (int i = 0; i < 9; i++) {
+        expect_true(d1.at<uchar>(i) == src1.at<uchar>(i), "bilateral d=1 c1 mismatch");
+        cv8uc3_t a = d3.at<cv8uc3_t>(i);
+        cv8uc3_t b = src3.at<cv8uc3_t>(i);
+        expect_true(a.c1 == b.c1 && a.c2 == b.c2 && a.c3 == b.c3, "bilateral d=1 c3 mismatch");
+    }
+
+    boxFilter(src1, d1, -1, Size(1, 1));
+    boxFilter(src3, d3, -1, Size(1, 1));
+    for (int i = 0; i < 9; i++) {
+        expect_true(d1.at<uchar>(i) == src1.at<uchar>(i), "box 1x1 c1 mismatch");
+        cv8uc3_t a = d3.at<cv8uc3_t>(i);
+        cv8uc3_t b = src3.at<cv8uc3_t>(i);
+        expect_true(a.c1 == b.c1 && a.c2 == b.c2 && a.c3 == b.c3, "box 1x1 c3 mismatch");
+    }
+}
+
 static void test_hungarian_and_random()
 {
     Mat cost(2, 2, CV_32FC1);
@@ -447,6 +509,48 @@ static void test_yuv_i420_numeric()
     expect_uchar_near(bgr_back_px.c1, 255, 14, "YUV2BGR_I420 blue channel mismatch");
     expect_uchar_near(bgr_back_px.c2, 0, 14, "YUV2BGR_I420 green channel mismatch");
     expect_uchar_near(bgr_back_px.c3, 0, 14, "YUV2BGR_I420 red channel mismatch");
+}
+
+static void test_cvtcolor_corner_values()
+{
+    Mat bgr(2, 2, CV_8UC3);
+    bgr.at<cv8uc3_t>(0, 0).c1 = 0;   bgr.at<cv8uc3_t>(0, 0).c2 = 0;   bgr.at<cv8uc3_t>(0, 0).c3 = 0;
+    bgr.at<cv8uc3_t>(0, 1).c1 = 255; bgr.at<cv8uc3_t>(0, 1).c2 = 255; bgr.at<cv8uc3_t>(0, 1).c3 = 255;
+    bgr.at<cv8uc3_t>(1, 0).c1 = 0;   bgr.at<cv8uc3_t>(1, 0).c2 = 255; bgr.at<cv8uc3_t>(1, 0).c3 = 0;
+    bgr.at<cv8uc3_t>(1, 1).c1 = 255; bgr.at<cv8uc3_t>(1, 1).c2 = 0;   bgr.at<cv8uc3_t>(1, 1).c3 = 0;
+
+    Mat gray;
+    cvtColor(bgr, gray, CV_BGR2GRAY);
+    expect_true(gray.at<uchar>(0, 0) == 0, "BGR2GRAY black mismatch");
+    expect_uchar_near(gray.at<uchar>(0, 1), 254, 1, "BGR2GRAY white mismatch");
+    expect_uchar_near(gray.at<uchar>(1, 0), 149, 1, "BGR2GRAY green mismatch");
+    expect_uchar_near(gray.at<uchar>(1, 1), 29, 1, "BGR2GRAY blue mismatch");
+
+    Mat gray_to_bgr;
+    cvtColor(gray, gray_to_bgr, CV_GRAY2BGR);
+    for (int i = 0; i < 4; i++) {
+        cv8uc3_t p = gray_to_bgr.at<cv8uc3_t>(i);
+        expect_true(p.c1 == gray.at<uchar>(i) && p.c2 == gray.at<uchar>(i) && p.c3 == gray.at<uchar>(i),
+                    "GRAY2BGR channel replication mismatch");
+    }
+
+    Mat rgb;
+    cvtColor(bgr, rgb, CV_BGR2RGB);
+    cv8uc3_t pr = rgb.at<cv8uc3_t>(1, 1);
+    expect_true(pr.c1 == 0 && pr.c2 == 0 && pr.c3 == 255, "BGR2RGB swap mismatch");
+    Mat bgr_back;
+    cvtColor(rgb, bgr_back, CV_RGB2BGR);
+    cv8uc3_t pb = bgr_back.at<cv8uc3_t>(1, 1);
+    expect_true(pb.c1 == 255 && pb.c2 == 0 && pb.c3 == 0, "RGB2BGR swap mismatch");
+
+    Mat gray_rgb(2, 2, CV_8UC3);
+    fill_rgb_2x2(gray_rgb, 64, 64, 64);
+    Mat yuv;
+    cvtColor(gray_rgb, yuv, CV_RGB2YUV_I420);
+    expect_true(yuv.rows == 3 && yuv.cols == 2, "RGB2YUV gray shape mismatch");
+    expect_uchar_near(yuv.at<uchar>(0, 0), 71, 2, "RGB2YUV gray Y mismatch");
+    expect_uchar_near(yuv.at<uchar>(2, 0), 128, 2, "RGB2YUV gray U mismatch");
+    expect_uchar_near(yuv.at<uchar>(2, 1), 128, 2, "RGB2YUV gray V mismatch");
 }
 
 static void test_yuv_low_level_paths()
@@ -779,6 +883,26 @@ static void test_resize_modes_and_errors()
     EXPECT_THROW(resize(src, nearest, Size(), 0.0f, 2.0f, INTER_NEAREST), "resize should reject invalid ratio");
     EXPECT_THROW(resize(src, nearest, Size(4, 4), 0.0f, 0.0f, INTER_CUBIC), "resize should reject unsupported cubic mode");
     EXPECT_THROW(resize(src, nearest, Size(4, 4), 0.0f, 0.0f, 99), "resize should reject unknown mode");
+
+    Mat ratio_round;
+    resize(src, ratio_round, Size(), 1.5f, 1.5f, INTER_NEAREST);
+    expect_true(ratio_round.rows == 3 && ratio_round.cols == 3, "ratio resize non-integer shape mismatch");
+
+    Mat c3_nearest;
+    resize(c3, c3_nearest, Size(), 1.5f, 1.5f, INTER_NEAREST);
+    expect_true(c3_nearest.rows == 3 && c3_nearest.cols == 3, "nearest c3 ratio shape mismatch");
+    cv8uc3_t tl = c3_nearest.at<cv8uc3_t>(0, 0);
+    expect_true(tl.c1 == c3.at<cv8uc3_t>(0, 0).c1, "nearest c3 top-left c1 mismatch");
+    expect_true(tl.c2 == c3.at<cv8uc3_t>(0, 0).c2, "nearest c3 top-left c2 mismatch");
+    expect_true(tl.c3 == c3.at<cv8uc3_t>(0, 0).c3, "nearest c3 top-left c3 mismatch");
+
+    Mat const_img(3, 3, CV_8UC1);
+    memset(const_img.ref->data, 42, 9);
+    Mat const_linear;
+    resize(const_img, const_linear, Size(5, 4), 0.0f, 0.0f, INTER_LINEAR);
+    for (int i = 0; i < const_linear.rows * const_linear.cols; i++) {
+        expect_true(const_linear.at<uchar>(i) == 42, "linear constant image mismatch");
+    }
 }
 
 static void test_error_paths()
@@ -1135,6 +1259,7 @@ void unit_test_coverage()
     test_bilateral_stability();
     test_filter2d_kernel_types();
     test_box_filter_and_geometry();
+    test_filter_minimal_cases();
     test_hungarian_and_random();
     test_randn_double_path();
     test_hungarian_exhaustive();
@@ -1147,6 +1272,7 @@ void unit_test_coverage()
     test_mat_cofactor_inverse_numeric();
     test_mat_identity_and_ones();
     test_mat_refcount_stress();
+    test_cvtcolor_corner_values();
     test_yuv_i420_numeric();
     test_yuv_low_level_paths();
     test_hsv_numeric();
