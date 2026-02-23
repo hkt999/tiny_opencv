@@ -7,6 +7,7 @@ namespace KCV {
 
 void HoughLines(const Mat src, std::vector<HoughLine> &lines, double rho, double theta, int threshold, double minLineLength, double maxLineGap) {
     lines.clear();
+    (void)maxLineGap;
     
     if (src.empty() || src.channels() != 1) {
         throw Exception("HoughLines: Input image must be single channel (grayscale)");

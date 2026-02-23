@@ -41,7 +41,6 @@ static void do_rgb2gray(int cols, int rows, uchar *src, uchar *dst)
 
 static void do_gray2bgr_rgb(int cols, int rows, uchar *src, uchar *dst)
 {
-    int r, g, b;
     int count = cols * rows;
     while (count-->0) {
         *dst++ = *src;

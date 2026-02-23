@@ -305,6 +305,8 @@ point_t cv_get_scripted_observation(void *data)
 
 void mouseHandler( int e, int x, int y, int d, void *ptr)
 {
+	(void)e;
+	(void)d;
 	kalman_test_t *p = (kalman_test_t *)ptr;
 	p->pos.x = x;
 	p->pos.y = y;
@@ -435,6 +437,10 @@ int main(int argc, const char **argv)
 
 	if (interactive) {
 		waitKey(150);
+	}
+	if (obj.img) {
+		delete obj.img;
+		obj.img = 0;
 	}
 	destroyAllWindows();
 	return 0;

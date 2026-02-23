@@ -2,6 +2,7 @@
 #define _OPENCV_CORE_H_
 
 #include "tiny_types.hpp"
+#include <cassert>
 #include <vector>
 
 #define KCV kcv
@@ -217,6 +218,7 @@ class Mat
 		Mat(int rows, int cols, int type);
 		Mat(Size size, int type);
 		Mat(const Mat &m);
+		Mat(Mat &&m) noexcept;
 		Mat(int rows, int cols, int type, void *data);
 		Mat(Size size, int type, void *data);
 		Mat(const Mat &m, const Rect2i &roi);
@@ -226,51 +228,62 @@ class Mat
 	public:
 		// operator
 		Mat& operator=(const Mat& m);
+		Mat& operator=(Mat&& m) noexcept;
 		Mat& operator+=(const Mat &m);
-		Mat& operator+(const Mat& m) const;
-		Mat& operator-(const Mat& m) const;
-		Mat& operator*(const Mat& m) const;
-		Mat& clone();
+		Mat operator+(const Mat& m) const;
+		Mat operator-(const Mat& m) const;
+		Mat operator*(const Mat& m) const;
+		Mat clone() const;
 
 		void createBuffer();
 		void create(int rows, int cols, int type);
 		template <typename _Tp> inline _Tp *getData() const {
+			assert(ref != 0 && ref->data != 0);
 			return (_Tp *)ref->data;
 		}
 		template <typename _Tp> inline _Tp *getData(int i_row, int i_col) const {
+			assert(ref != 0 && ref->data != 0);
+			assert(i_row >= 0 && i_row < rows);
+			assert(i_col >= 0 && i_col < cols);
 			_Tp *d = (_Tp *)ref->data;
 			return d + (cols * i_row + i_col);
 		}
 		template <typename _Tp> inline _Tp& at(int i_row, int i_col) const {
+			assert(ref != 0 && ref->data != 0);
+			assert(i_row >= 0 && i_row < rows);
+			assert(i_col >= 0 && i_col < cols);
 			_Tp *d = (_Tp *)ref->data;
 		    return d[cols * i_row + i_col];
 		}
 		template <typename _Tp> inline _Tp& at(int idx) const {
+			assert(ref != 0 && ref->data != 0);
+			assert(idx >= 0 && idx < rows * cols);
 			_Tp *d = (_Tp *)ref->data;
 			return d[idx];
 		}
 		void *ptr() const {
+			assert(ref != 0 && ref->data != 0);
 			return (void *)ref->data;
 		}
-		Mat& transpose();
-		inline Mat &t() { return transpose(); }
+		Mat transpose() const;
+		inline Mat t() const { return transpose(); }
 
-		float determinant();
-		Mat& cofactor_();
-		Mat& inverse();
+		float determinant() const;
+		Mat cofactor_() const;
+		Mat inverse() const;
 
-		Mat &operator()( const Rect& roi );
-		static Mat& zeros(int rows, int cols, int type);
-		static Mat& ones(int rows, int cols, int type);
-		static Mat& eye(int rows, int cols, int type);
+		Mat operator()( const Rect& roi ) const;
+		static Mat zeros(int rows, int cols, int type);
+		static Mat ones(int rows, int cols, int type);
+		static Mat eye(int rows, int cols, int type);
 
 	public:
 		// member functions
-		const inline bool empty() const { return (ref == 0) || (ref->data == 0) || ((cols == 0) && (rows==0)); }
+		inline bool empty() const { return (ref == 0) || (ref->data == 0) || ((cols == 0) && (rows==0)); }
 		inline int channels() const { return (type/8)+1; }
-		inline int depth() { return (type%8); }
-		inline int dims() { return 2; } // only supports 2 channels (row/col)
-		int elemSize();
+		inline int depth() const { return (type%8); }
+		inline int dims() const { return 2; } // only supports 2 channels (row/col)
+		int elemSize() const;
 		void release();
 		void copyTo(Mat &dest);
 		void print(const char *name); // for debug

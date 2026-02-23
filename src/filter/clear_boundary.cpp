@@ -5,7 +5,6 @@ namespace KCV {
 
 void clear_boundary(Mat &dst, Size ksize)
 {
-    uchar *wline;
     int h_pad = (ksize.width - 1) / 2;
     int v_pad = (ksize.height - 1) / 2;
     int chans = dst.channels();

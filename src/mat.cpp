@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
+#include <cstdint>
+#include <cmath>
 #include "tiny_opencv.hpp"
 #include <assert.h>
 
@@ -18,6 +20,14 @@ static void release_data_ref(DataRef *&ref)
         free(ref);
     }
     ref = 0;
+}
+
+static inline void validate_roi_bounds(const Mat &m, const Rect &roi, const char *msg)
+{
+    if (roi.x < 0 || roi.y < 0 || roi.width <= 0 || roi.height <= 0 ||
+        roi.x + roi.width > m.cols || roi.y + roi.height > m.rows) {
+        throw Exception(msg);
+    }
 }
 
 Mat::Mat(): rows(0), cols(0), type(0), ref(0)
@@ -65,6 +75,14 @@ Mat::Mat(const Mat &m): rows(m.rows), cols(m.cols), type(m.type), ref(m.ref)
     }
 }
 
+Mat::Mat(Mat &&m) noexcept: rows(m.rows), cols(m.cols), type(m.type), ref(m.ref)
+{
+    m.rows = 0;
+    m.cols = 0;
+    m.type = 0;
+    m.ref = 0;
+}
+
 Mat::Mat(int rows, int cols, int type, void *data): rows(rows), cols(cols), type(type)
 {
     ref = (DataRef *)malloc(sizeof(DataRef));
@@ -93,8 +111,19 @@ template <typename _Tp> static void copyBlock(Mat &mdst, const Mat &msrc, const 
     }
 }
 
-Mat::Mat(const Mat &m, const Rect &roi):cols(roi.width), rows(roi.height), type(m.type), ref(0)
+Mat::Mat(const Mat &m, const Rect &roi):rows(roi.height), cols(roi.width), type(m.type), ref(0)
 {
+    validate_roi_bounds(m, roi, "mat constructor (m/roi) out of bounds");
+    switch (type) {
+        case CV_8UC1:
+        case CV_8UC3:
+        case CV_32F:
+        case CV_64F:
+            break;
+        default:
+            throw Exception("mat constructor (m/roi) not supporting types");
+    }
+
     createBuffer();
     switch (type) {
         case CV_8UC1: 
@@ -112,9 +141,6 @@ Mat::Mat(const Mat &m, const Rect &roi):cols(roi.width), rows(roi.height), type(
         case CV_64F:
             copyBlock<double>(*this, m, roi);
             break;
-
-        default:
-            throw Exception("mat constructor (m/roi) not supporting types");
     }
 }
 
@@ -144,22 +170,41 @@ Mat& Mat::operator=(const Mat& m)
     return *this;
 }
 
-Mat& Mat::operator+(const Mat &m) const
+Mat& Mat::operator=(Mat&& m) noexcept
+{
+    if (this == &m) {
+        return *this;
+    }
+
+    release();
+    rows = m.rows;
+    cols = m.cols;
+    type = m.type;
+    ref = m.ref;
+
+    m.rows = 0;
+    m.cols = 0;
+    m.type = 0;
+    m.ref = 0;
+    return *this;
+}
+
+Mat Mat::operator+(const Mat &m) const
 {
     if ((cols != m.cols) || (rows != m.rows))
         throw Exception("operator + dimention is mismatched");
 
-    Mat *t = new Mat(rows, cols, type);
+    Mat t(rows, cols, type);
 
     if (type == CV_32F) {
-        float *dst = t->getData<float>(), *a = getData<float>(), *b = m.getData<float>();
+        float *dst = t.getData<float>(), *a = getData<float>(), *b = m.getData<float>();
         int count = rows * cols;
         while (count-->0) {
             *dst++ = *a++ + *b++;
         }
     }
 
-    return *t;
+    return t;
 }
 
 Mat &Mat::operator+=(const Mat &m)
@@ -178,7 +223,7 @@ Mat &Mat::operator+=(const Mat &m)
     return *this;
 }
 
-Mat& Mat::operator-(const Mat &m) const
+Mat Mat::operator-(const Mat &m) const
 {
     if ((cols != m.cols) || (rows != m.rows))
         throw Exception("operator + dimention is mismatched");
@@ -186,20 +231,20 @@ Mat& Mat::operator-(const Mat &m) const
     if (type != m.type)
         throw Exception("type mismatch for matrix type");
 
-    Mat *t = new Mat(rows, cols, type);
+    Mat t(rows, cols, type);
 
     if (type == CV_32F) {
-        float *dst = t->getData<float>(), *a = getData<float>(), *b = m.getData<float>();
+        float *dst = t.getData<float>(), *a = getData<float>(), *b = m.getData<float>();
         int count = rows * cols;
         while (count-->0) {
             *dst++ = *a++ - *b++;
         }
     }
 
-    return *t;
+    return t;
 }
 
-Mat& Mat::operator*(const Mat& m) const
+Mat Mat::operator*(const Mat& m) const
 {
     if (cols != m.rows) {
         throw Exception("operator * dimension is mismatched");
@@ -211,7 +256,7 @@ Mat& Mat::operator*(const Mat& m) const
         throw Exception("operator * only supports CV_32FC1");
     }
 
-    Mat &t = Mat::zeros(rows, m.cols, type);
+    Mat t = Mat::zeros(rows, m.cols, type);
     float *c = t.getData<float>();
     float *la = getData<float>();
     for (int i=0; i<rows; i++) {
@@ -231,41 +276,43 @@ Mat& Mat::operator*(const Mat& m) const
     return t; 
 }
 
-Mat& Mat::clone()
+Mat Mat::clone() const
 {
-    Mat *m = new Mat(rows, cols, type);
+    Mat m(rows, cols, type);
 
     // copy data
-    memcpy(m->ptr(), ptr(), cols * rows * elemSize());
+    memcpy(m.ptr(), ptr(), cols * rows * elemSize());
 
-    return *m;
+    return m;
 }
 
-int Mat::elemSize()
+int Mat::elemSize() const
 {
     static int mapping[] = { 1, 1, 2, 2, 4, 4, 8, 0};
     return channels() * mapping[depth()];
 }
 
-Mat &Mat::operator()( const Rect& roi )
+Mat Mat::operator()( const Rect& roi ) const
 {
-    Mat *t = new Mat(roi.height, roi.width, type);
+    validate_roi_bounds(*this, roi, "operator() roi out of bounds");
+
+    Mat t(roi.height, roi.width, type);
 
     int src_line_bytes = cols * elemSize();
-    int dst_line_bytes = t->cols * t->elemSize();
+    int dst_line_bytes = t.cols * t.elemSize();
     int h = roi.height;
     uchar *src = (uchar *)ref->data + (roi.y * cols + roi.x) * elemSize();
-    uchar *dst = (uchar *)t->ref->data;
+    uchar *dst = (uchar *)t.ref->data;
     while (h-->0) {
         memcpy(dst, src, dst_line_bytes);
         src += src_line_bytes;
         dst += dst_line_bytes;
     }
 
-    return *t;
+    return t;
 }
 
-template <typename _Tp> static void do_transpose(Mat &mdst, Mat &msrc)
+template <typename _Tp> static void do_transpose(Mat &mdst, const Mat &msrc)
 {
     for (int i=0; i<msrc.rows; i++) {
         for (int j=0; j<msrc.cols; j++) {
@@ -274,30 +321,30 @@ template <typename _Tp> static void do_transpose(Mat &mdst, Mat &msrc)
     }
 }
 
-Mat& Mat::transpose()
+Mat Mat::transpose() const
 {
-    Mat *t = 0;
+    Mat t;
     switch (type) {
         case CV_8U:
-            t = new Mat( cols, rows, CV_8U);
-            do_transpose<uchar>(*t, *this);
+            t = Mat(cols, rows, CV_8U);
+            do_transpose<uchar>(t, *this);
             break;
         case CV_32F:
-            t = new Mat( cols, rows, CV_32F);
-            do_transpose<float>(*t, *this);
+            t = Mat(cols, rows, CV_32F);
+            do_transpose<float>(t, *this);
             break;
         case CV_64F:
-            t = new Mat( cols, rows, CV_64F);
-            do_transpose<double>(*t, *this);
+            t = Mat(cols, rows, CV_64F);
+            do_transpose<double>(t, *this);
             break;
         default:
             throw Exception("not supporting data type for matrix transpose");
     }
 
-    return *t;
+    return t;
 }
 
-float Mat::determinant()
+float Mat::determinant() const
 {
     float det = 0;
 
@@ -361,30 +408,30 @@ float Mat::determinant()
     }
 }
 
-Mat &Mat::cofactor_()
+Mat Mat::cofactor_() const
 {
-    Mat *cofactor = new Mat(rows, cols, type);
+    Mat cofactor(rows, cols, type);
     if (rows != cols)
-        return *cofactor;
+        return cofactor;
 
     if (rows == 1) {
-        float *dst = cofactor->getData<float>();
+        float *dst = cofactor.getData<float>();
         float *src = getData<float>();
         *dst = *src;
-        return *cofactor;
+        return cofactor;
     } else if (rows == 2) {
         float *src = getData<float>() + 3;
-        float *dst = cofactor->getData<float>();
+        float *dst = cofactor.getData<float>();
         *dst++ = *src--;
         *dst++ = -(*src--);
         *dst++ = -(*src--);
         *dst++ = *src;
-        return *cofactor;
+        return cofactor;
     } 
 
     Mat temp(rows-1, rows-1, type);
     bool flagPositive = true;
-    float *co = cofactor->getData<float>();
+    float *co = cofactor.getData<float>();
     for(int k1 = 0; k1 < rows; k1++) {  
         flagPositive = ( (k1 & 1) == 0);
         for(int k2 = 0; k2 < rows; k2++) {
@@ -411,27 +458,36 @@ Mat &Mat::cofactor_()
         }
     }
 
-    return *cofactor;
+    return cofactor;
 }
 
-Mat& Mat::inverse()
+Mat Mat::inverse() const
 {
-    Mat *inv = new Mat(rows, cols, type);
+    Mat inv(rows, cols, type);
     if (rows != cols)
         throw Exception("mismatch rows/cols in inverse");
+    if (type != CV_32FC1) {
+        throw Exception("inverse only supports CV_32FC1");
+    }
 
     // 1x1
     if (rows == 1) {
-        inv->at<float>(0,0) = 1 / at<float>(0,0);
-        return *inv;
+        if (at<float>(0,0) == 0.0f) {
+            throw Exception("inverse singular matrix");
+        }
+        inv.at<float>(0,0) = 1 / at<float>(0,0);
+        return inv;
     }
 
     // to find out determinant
     float det = determinant();
-	Mat &cofactor = cofactor_();
+    if (fabs(det) <= 1e-12f) {
+        throw Exception("inverse singular matrix");
+    }
+	Mat cofactor = cofactor_();
     // inv = transpose of cofactor / Determinant
     float *src = cofactor.getData<float>();
-    float *dst_line = inv->getData<float>();
+    float *dst_line = inv.getData<float>();
     for(int i = 0; i < rows; i++) {
         float *dst = dst_line;
         for(int j = 0; j < cols; j++) {
@@ -441,15 +497,15 @@ Mat& Mat::inverse()
         dst_line++;
     }
 
-    return *inv;
+    return inv;
 }
 
-Mat& Mat::zeros(int cols, int rows, int type)
+Mat Mat::zeros(int rows, int cols, int type)
 {
-    Mat *t = new Mat(cols, rows, type);
-    bzero(t->ref->data, cols * rows * t->elemSize());
+    Mat t(rows, cols, type);
+    bzero(t.ref->data, cols * rows * t.elemSize());
 
-    return *t;
+    return t;
 }
 
 template <typename _Tp> inline void fillOnes(Mat &dst)
@@ -461,9 +517,9 @@ template <typename _Tp> inline void fillOnes(Mat &dst)
     }
 }
 
-Mat& Mat::ones(int cols, int rows, int type)
+Mat Mat::ones(int rows, int cols, int type)
 {
-    Mat &t = zeros(cols, rows, type);
+    Mat t = zeros(rows, cols, type);
     switch (t.depth()) {
         case CV_8U:
             fillOnes<uchar>(t);
@@ -480,9 +536,9 @@ Mat& Mat::ones(int cols, int rows, int type)
     return t;
 }
 
-Mat& Mat::eye(int i_rows, int i_cols, int type)
+Mat Mat::eye(int i_rows, int i_cols, int type)
 {
-    Mat &t = zeros(i_rows, i_cols, type);
+    Mat t = zeros(i_rows, i_cols, type);
     if (t.channels() != 1) {
         throw Exception("eye only supports single channel matrices");
     }

@@ -34,9 +34,9 @@ int unit_test_inverse_matrix()
             data[j] = distr(eng);
 
         printf("calculating inverse (%d x %d)... ", i, i);
-        Mat *m = new Mat(i, i, CV_32F, data);
-        Mat &inv = m->inverse();
-        Mat &res = *m * inv;
+        Mat m(i, i, CV_32F, data);
+        Mat inv = m.inverse();
+        Mat res = m * inv;
         // check result
         for (int j=0; j<res.rows; j++) {
             for (int k=0; k<res.cols; k++) {
@@ -55,7 +55,6 @@ int unit_test_inverse_matrix()
                 }
             }
         }
-        delete m;
         printf("UnitTest Inverse: OK\n");
         free(data);
     }
@@ -81,7 +80,7 @@ int unit_test_transpose_matrix()
         while (c-->0)
             *p++ = distr(eng);
 
-        Mat &t = m.transpose();
+        Mat t = m.transpose();
         if ((t.cols != m.rows) || (t.rows != m.cols)) {
             printf("transpose doesn't match (%d, %d) - (%d, %d)\n", m.rows, m.cols, t.rows, t.cols);
             return -1;

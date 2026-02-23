@@ -29,7 +29,6 @@ void medianBlur(const Mat src, Mat &dst, int ksize)
     int line_bytes = dst.cols * chans;
     for (int y=pad; y<src.rows-pad; y++) {
         uchar *w = wline;
-        int count = 0;
         uchar **pb = (uchar **)malloc(chans*sizeof(uchar **));
         // run the kernel
         for (int x=pad; x<src.cols-pad; x++) {

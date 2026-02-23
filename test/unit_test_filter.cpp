@@ -58,6 +58,8 @@ void *unit_test_filter2d_c3(void *data, int width, int height, int kernel_w, int
 
 void *unit_test_gaussian_c1(void *data, int width, int height, int ksize, double sigma)
 {
+    (void)ksize;
+    (void)sigma;
     Mat src(height, width, CV_8UC1, data);
     Mat dst;
 
@@ -68,6 +70,8 @@ void *unit_test_gaussian_c1(void *data, int width, int height, int ksize, double
 
 void *unit_test_gaussian_c3(void *data, int width, int height, int ksize, double sigma)
 {
+    (void)ksize;
+    (void)sigma;
     Mat src(height, width, CV_8UC3, data);
     Mat dst;
 
@@ -146,8 +150,8 @@ void *unit_test_crop_c3(void *data, int width, int height, int roi_x, int roi_y,
     float m2d[] = {5,7,6,8};
     Mat m1(2, 2, CV_32F, m1d);
     Mat m2(2, 2, CV_32F, m2d);
-    Mat &inv = m1.inverse();
-    Mat &test = m1 * inv;
+    Mat inv = m1.inverse();
+    Mat test = m1 * inv;
 
     Mat m3 = m1 * m2;
 

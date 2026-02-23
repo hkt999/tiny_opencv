@@ -11,7 +11,6 @@ static void nearest_resize(T *src, int w1, int h1, T *dst, int w2, int h2)
     int y_step = h1 / h2;
     int y_err = (h1 * 65536) / h2 - y_step * 65536;
 
-    int accu_y = 0;
     int accu_y_err = 0;
     T *line_start = src;
     for (int y=0; y<h2; y++) {

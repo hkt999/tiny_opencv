@@ -5,6 +5,7 @@
 #include <iostream>
 #include <limits>
 #include <sstream>
+#include <utility>
 #include <vector>
 #include "unit_test.hpp"
 #include "tiny_opencv.hpp"
@@ -808,10 +809,9 @@ static void test_mat_semantics()
     b.at<uchar>(0, 0) = 77;
     expect_true(a.at<uchar>(0, 0) == 77, "shared ref write should be visible");
 
-    Mat *clone_p = &a.clone();
-    clone_p->at<uchar>(0, 0) = 5;
+    Mat clone_m = a.clone();
+    clone_m.at<uchar>(0, 0) = 5;
     expect_true(a.at<uchar>(0, 0) == 77, "clone should be deep copy");
-    delete clone_p;
 
     Mat copy_v;
     a.copyTo(copy_v);
@@ -819,7 +819,8 @@ static void test_mat_semantics()
     expect_true(a.at<uchar>(1, 1) == 40, "copyTo should be deep copy");
 
     Mat self = a;
-    self = self;
+    Mat *self_alias = &self;
+    self = *self_alias;
     expect_true(self.at<uchar>(1, 0) == 30, "self assignment should keep data");
 
     Mat roi_src(3, 3, CV_8UC1);
@@ -832,6 +833,8 @@ static void test_mat_semantics()
     Mat roi_copy(roi_src, Rect(1, 1, 2, 2));
     expect_true(roi_copy.rows == 2 && roi_copy.cols == 2, "roi constructor shape mismatch");
     expect_true(roi_copy.at<uchar>(0, 0) == roi_src.at<uchar>(1, 1), "roi constructor value mismatch");
+    EXPECT_THROW(roi_src(Rect(2, 2, 2, 2)), "operator() should reject out-of-bounds roi");
+    EXPECT_THROW(Mat(roi_src, Rect(-1, 0, 1, 1)), "roi ctor should reject out-of-bounds roi");
 
     Mat m1(2, 3, CV_32FC1), m2(4, 2, CV_32FC1);
     EXPECT_THROW(m1 * m2, "operator* should reject dimension mismatch");
@@ -841,6 +844,13 @@ static void test_mat_semantics()
 
     Mat nonsquare(2, 3, CV_32FC1);
     EXPECT_THROW(nonsquare.inverse(), "inverse should reject non-square matrix");
+
+    Mat singular(2, 2, CV_32FC1);
+    singular.at<float>(0, 0) = 1.0f;
+    singular.at<float>(0, 1) = 2.0f;
+    singular.at<float>(1, 0) = 2.0f;
+    singular.at<float>(1, 1) = 4.0f;
+    EXPECT_THROW(singular.inverse(), "inverse should reject singular matrix");
 
     Mat nonf(2, 2, CV_8UC1);
     expect_true(nonf.determinant() == 0.0f, "determinant non-float fallback mismatch");
@@ -930,88 +940,96 @@ static void test_mat_semantics()
     for (int i = 0; i < 6; i++) {
         t_u8_src.at<uchar>(i) = (uchar)(i + 1);
     }
-    Mat *t_u8 = &t_u8_src.transpose();
-    expect_true(t_u8->rows == 3 && t_u8->cols == 2, "transpose CV_8U shape mismatch");
-    expect_true(t_u8->at<uchar>(2, 1) == t_u8_src.at<uchar>(1, 2), "transpose CV_8U value mismatch");
-    delete t_u8;
+    Mat t_u8 = t_u8_src.transpose();
+    expect_true(t_u8.rows == 3 && t_u8.cols == 2, "transpose CV_8U shape mismatch");
+    expect_true(t_u8.at<uchar>(2, 1) == t_u8_src.at<uchar>(1, 2), "transpose CV_8U value mismatch");
 
     Mat t_d_src(2, 2, CV_64F);
     t_d_src.at<double>(0, 0) = 1.0;
     t_d_src.at<double>(0, 1) = 2.0;
     t_d_src.at<double>(1, 0) = 3.0;
     t_d_src.at<double>(1, 1) = 4.0;
-    Mat *t_d = &t_d_src.transpose();
-    expect_true(t_d->at<double>(0, 1) == 3.0, "transpose CV_64F mismatch");
-    delete t_d;
+    Mat t_d = t_d_src.transpose();
+    expect_true(t_d.at<double>(0, 1) == 3.0, "transpose CV_64F mismatch");
 
     Mat det1(1, 1, CV_32FC1);
     det1.at<float>(0, 0) = 7.5f;
     expect_float_near(det1.determinant(), 7.5f, 1e-6f, "determinant 1x1 mismatch");
+
+    Mat move_src(2, 2, CV_8UC1);
+    move_src.at<uchar>(0, 0) = 11;
+    DataRef *move_ref = move_src.ref;
+    Mat move_dst(std::move(move_src));
+    expect_true(move_src.ref == 0, "move ctor source should be empty");
+    expect_true(move_dst.ref == move_ref, "move ctor should transfer ownership");
+    expect_true(move_dst.at<uchar>(0, 0) == 11, "move ctor value mismatch");
+
+    Mat move_assign_src(2, 2, CV_8UC1);
+    move_assign_src.at<uchar>(1, 1) = 99;
+    DataRef *move_assign_ref = move_assign_src.ref;
+    Mat move_assign_dst(1, 1, CV_8UC1);
+    move_assign_dst = std::move(move_assign_src);
+    expect_true(move_assign_src.ref == 0, "move assign source should be empty");
+    expect_true(move_assign_dst.ref == move_assign_ref, "move assign should transfer ownership");
+    expect_true(move_assign_dst.at<uchar>(1, 1) == 99, "move assign value mismatch");
 }
 
 static void test_mat_cofactor_inverse_numeric()
 {
     Mat m1(1, 1, CV_32FC1);
     m1.at<float>(0, 0) = 4.0f;
-    Mat *co1 = &m1.cofactor_();
-    expect_float_near(co1->at<float>(0, 0), 4.0f, 1e-6f, "cofactor 1x1 mismatch");
-    delete co1;
-    Mat *inv1 = &m1.inverse();
-    expect_float_near(inv1->at<float>(0, 0), 0.25f, 1e-6f, "inverse 1x1 mismatch");
-    delete inv1;
+    Mat co1 = m1.cofactor_();
+    expect_float_near(co1.at<float>(0, 0), 4.0f, 1e-6f, "cofactor 1x1 mismatch");
+    Mat inv1 = m1.inverse();
+    expect_float_near(inv1.at<float>(0, 0), 0.25f, 1e-6f, "inverse 1x1 mismatch");
 
     Mat m2(2, 2, CV_32FC1);
     m2.at<float>(0, 0) = 1.0f; m2.at<float>(0, 1) = 2.0f;
     m2.at<float>(1, 0) = 3.0f; m2.at<float>(1, 1) = 4.0f;
-    Mat *co2 = &m2.cofactor_();
-    expect_float_near(co2->at<float>(0, 0), 4.0f, 1e-6f, "cofactor 2x2 (0,0) mismatch");
-    expect_float_near(co2->at<float>(0, 1), -3.0f, 1e-6f, "cofactor 2x2 (0,1) mismatch");
-    expect_float_near(co2->at<float>(1, 0), -2.0f, 1e-6f, "cofactor 2x2 (1,0) mismatch");
-    expect_float_near(co2->at<float>(1, 1), 1.0f, 1e-6f, "cofactor 2x2 (1,1) mismatch");
-    delete co2;
-    Mat *inv2 = &m2.inverse();
-    expect_float_near(inv2->at<float>(0, 0), -2.0f, 1e-5f, "inverse 2x2 (0,0) mismatch");
-    expect_float_near(inv2->at<float>(0, 1), 1.0f, 1e-5f, "inverse 2x2 (0,1) mismatch");
-    expect_float_near(inv2->at<float>(1, 0), 1.5f, 1e-5f, "inverse 2x2 (1,0) mismatch");
-    expect_float_near(inv2->at<float>(1, 1), -0.5f, 1e-5f, "inverse 2x2 (1,1) mismatch");
-    delete inv2;
+    Mat co2 = m2.cofactor_();
+    expect_float_near(co2.at<float>(0, 0), 4.0f, 1e-6f, "cofactor 2x2 (0,0) mismatch");
+    expect_float_near(co2.at<float>(0, 1), -3.0f, 1e-6f, "cofactor 2x2 (0,1) mismatch");
+    expect_float_near(co2.at<float>(1, 0), -2.0f, 1e-6f, "cofactor 2x2 (1,0) mismatch");
+    expect_float_near(co2.at<float>(1, 1), 1.0f, 1e-6f, "cofactor 2x2 (1,1) mismatch");
+    Mat inv2 = m2.inverse();
+    expect_float_near(inv2.at<float>(0, 0), -2.0f, 1e-5f, "inverse 2x2 (0,0) mismatch");
+    expect_float_near(inv2.at<float>(0, 1), 1.0f, 1e-5f, "inverse 2x2 (0,1) mismatch");
+    expect_float_near(inv2.at<float>(1, 0), 1.5f, 1e-5f, "inverse 2x2 (1,0) mismatch");
+    expect_float_near(inv2.at<float>(1, 1), -0.5f, 1e-5f, "inverse 2x2 (1,1) mismatch");
 
     Mat m3(3, 3, CV_32FC1);
     float v[9] = {1, 2, 3, 0, 1, 4, 5, 6, 0};
     for (int i = 0; i < 9; i++) {
         m3.at<float>(i) = v[i];
     }
-    Mat *co3 = &m3.cofactor_();
-    expect_float_near(co3->at<float>(0, 0), -24.0f, 1e-5f, "cofactor 3x3 (0,0) mismatch");
-    expect_float_near(co3->at<float>(0, 1), 20.0f, 1e-5f, "cofactor 3x3 (0,1) mismatch");
-    expect_float_near(co3->at<float>(2, 2), 1.0f, 1e-5f, "cofactor 3x3 (2,2) mismatch");
-    delete co3;
-    Mat *inv3 = &m3.inverse();
-    expect_float_near(inv3->at<float>(0, 0), -24.0f, 1e-4f, "inverse 3x3 (0,0) mismatch");
-    expect_float_near(inv3->at<float>(0, 1), 18.0f, 1e-4f, "inverse 3x3 (0,1) mismatch");
-    expect_float_near(inv3->at<float>(0, 2), 5.0f, 1e-4f, "inverse 3x3 (0,2) mismatch");
-    expect_float_near(inv3->at<float>(2, 2), 1.0f, 1e-4f, "inverse 3x3 (2,2) mismatch");
-    delete inv3;
+    Mat co3 = m3.cofactor_();
+    expect_float_near(co3.at<float>(0, 0), -24.0f, 1e-5f, "cofactor 3x3 (0,0) mismatch");
+    expect_float_near(co3.at<float>(0, 1), 20.0f, 1e-5f, "cofactor 3x3 (0,1) mismatch");
+    expect_float_near(co3.at<float>(2, 2), 1.0f, 1e-5f, "cofactor 3x3 (2,2) mismatch");
+    Mat inv3 = m3.inverse();
+    expect_float_near(inv3.at<float>(0, 0), -24.0f, 1e-4f, "inverse 3x3 (0,0) mismatch");
+    expect_float_near(inv3.at<float>(0, 1), 18.0f, 1e-4f, "inverse 3x3 (0,1) mismatch");
+    expect_float_near(inv3.at<float>(0, 2), 5.0f, 1e-4f, "inverse 3x3 (0,2) mismatch");
+    expect_float_near(inv3.at<float>(2, 2), 1.0f, 1e-4f, "inverse 3x3 (2,2) mismatch");
 
     Mat ns(2, 3, CV_32FC1);
-    Mat *co_ns = &ns.cofactor_();
-    expect_true(co_ns->rows == 2 && co_ns->cols == 3, "cofactor non-square shape mismatch");
-    delete co_ns;
+    Mat co_ns = ns.cofactor_();
+    expect_true(co_ns.rows == 2 && co_ns.cols == 3, "cofactor non-square shape mismatch");
 }
 
 static void test_mat_identity_and_ones()
 {
-    Mat &ones8 = Mat::ones(2, 2, CV_8U);
+    Mat ones8 = Mat::ones(2, 2, CV_8U);
     expect_true(ones8.at<uchar>(0, 0) == 1 && ones8.at<uchar>(1, 1) == 1, "ones CV_8U mismatch");
 
-    Mat &ones32 = Mat::ones(2, 2, CV_32F);
+    Mat ones32 = Mat::ones(2, 2, CV_32F);
     expect_float_near(ones32.at<float>(0, 1), 1.0f, 1e-6f, "ones CV_32F mismatch");
 
-    Mat &eye8 = Mat::eye(3, 3, CV_8UC1);
+    Mat eye8 = Mat::eye(3, 3, CV_8UC1);
     expect_true(eye8.at<uchar>(0, 0) == 1 && eye8.at<uchar>(1, 1) == 1 && eye8.at<uchar>(2, 2) == 1, "eye CV_8U diag mismatch");
     expect_true(eye8.at<uchar>(0, 1) == 0 && eye8.at<uchar>(2, 1) == 0, "eye CV_8U off-diag mismatch");
 
-    Mat &eye64 = Mat::eye(3, 3, CV_64FC1);
+    Mat eye64 = Mat::eye(3, 3, CV_64FC1);
     expect_true(fabs(eye64.at<double>(0, 0) - 1.0) < 1e-12, "eye CV_64F diag mismatch");
     expect_true(fabs(eye64.at<double>(2, 1)) < 1e-12, "eye CV_64F off-diag mismatch");
 

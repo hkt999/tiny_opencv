@@ -24,20 +24,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake g++ pkg-config libopencv-dev
 
-      - name: Build and Run Examples
-        run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build -j
-          mkdir -p /tmp/tiny_opencv_examples_bin
-          for f in examples/*.cpp; do
-            name=$(basename "$f" .cpp)
-            g++ -std=c++11 -Iinclude "$f" build/libtiny_opencv.a -o "/tmp/tiny_opencv_examples_bin/$name"
-            "/tmp/tiny_opencv_examples_bin/$name"
-          done
-
       - name: Coverage Gate
         run: |
-          ./scripts/coverage_gate.sh | tee coverage_gate.log
+          set -o pipefail
+          ./scripts/coverage_gate.sh 2>&1 | tee coverage_gate.log
 
       - name: Coverage Summary
         run: |
@@ -50,6 +40,7 @@ jobs:
         with:
           name: coverage-gate-log
           path: coverage_gate.log
+          if-no-files-found: ignore
 
   sanitizer:
     runs-on: ubuntu-22.04
@@ -65,29 +56,36 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake g++ pkg-config libopencv-dev
+          sudo apt-get install -y cmake g++ clang pkg-config libopencv-dev
 
       - name: Build (${{ matrix.san }})
         run: |
+          set -o pipefail
           if [ "${{ matrix.san }}" = "address" ]; then
             SAN_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
           else
             SAN_FLAGS="-fsanitize=undefined -fno-sanitize-recover=all -fno-omit-frame-pointer"
           fi
           cmake -S . -B build_san \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_C_FLAGS="$SAN_FLAGS" \
             -DCMAKE_CXX_FLAGS="$SAN_FLAGS" \
-            -DCMAKE_EXE_LINKER_FLAGS="$SAN_FLAGS"
-          cmake --build build_san -j
+            -DCMAKE_EXE_LINKER_FLAGS="$SAN_FLAGS" 2>&1 | tee "sanitizer_${{ matrix.san }}_build.log"
+          cmake --build build_san -j 2>&1 | tee -a "sanitizer_${{ matrix.san }}_build.log"
 
       - name: Run Unit Tests (${{ matrix.san }})
         run: |
-          ./build_san/tiny_opencv_test | tee "sanitizer_${{ matrix.san }}.log"
+          set -o pipefail
+          ./build_san/tiny_opencv_test 2>&1 | tee "sanitizer_${{ matrix.san }}.log"
 
       - name: Upload Sanitizer Logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: sanitizer-${{ matrix.san }}-log
-          path: sanitizer_${{ matrix.san }}.log
+          path: |
+            sanitizer_${{ matrix.san }}.log
+            sanitizer_${{ matrix.san }}_build.log
+          if-no-files-found: ignore

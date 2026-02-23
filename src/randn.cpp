@@ -21,7 +21,6 @@ double normal_random(double mean, double sigma) {
 
 void randn(Mat &dst, float mean, float sigma)
 {
-    float *data = dst.getData<float>();
     int dtype = dst.type&0x07;
     int ch = 1 + (dst.type>>3);
     int counter = dst.cols * dst.rows * ch;

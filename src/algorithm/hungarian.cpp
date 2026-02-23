@@ -26,8 +26,8 @@ double HungarianAlgorithm::Solve(Mat& DistMatrix, Mat& Assignment)
 	// Here the cost matrix of size MxN is defined as a double precision array of N*M elements. 
 	// In the solving functions matrices are seen to be saved MATLAB-internally in row-order.
 	// (i.e. the matrix [1 2; 3 4] will be stored as a vector [1 3 2 4], NOT [1 2 3 4]).
-	for (int i = 0; i < nRows; i++)
-		for (int j = 0; j < nCols; j++)
+	for (unsigned int i = 0; i < nRows; i++)
+		for (unsigned int j = 0; j < nCols; j++)
 			distMatrixIn[i + nRows * j] = DistMatrix.at<float>(i,j);
 	
 	// call solving function
@@ -38,7 +38,7 @@ double HungarianAlgorithm::Solve(Mat& DistMatrix, Mat& Assignment)
 	for (unsigned int r = 0; r < nRows; r++)
 		Assignment.push_back(assignment[r]);
 #else
-	for (int i=0; i<nRows; i++)
+	for (unsigned int i = 0; i < nRows; i++)
 		Assignment.at<float>(i,0) = assignment[i];
 #endif
 
