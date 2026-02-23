@@ -150,6 +150,39 @@ static void test_bilateral_stability()
     expect_true(center.c3 == center_src.c3, "bilateral c3 sigma-zero center c3 mismatch");
 }
 
+static void test_filter2d_kernel_types()
+{
+    Mat src(5, 5, CV_8UC1);
+    for (int r = 0; r < src.rows; r++) {
+        for (int c = 0; c < src.cols; c++) {
+            src.at<uchar>(r, c) = (uchar)(r * 10 + c);
+        }
+    }
+
+    Mat dst;
+    Mat k8(3, 3, CV_8UC1);
+    memset(k8.ref->data, 0, 9);
+    k8.at<uchar>(1, 1) = 1;
+    filter2D(src, dst, -1, k8);
+    expect_true(dst.at<uchar>(2, 2) == src.at<uchar>(2, 2), "filter2D CV_8UC1 kernel center mismatch");
+
+    Mat k32s(3, 3, CV_32SC1);
+    for (int i = 0; i < 9; i++) {
+        k32s.at<int32_t>(i) = 0;
+    }
+    k32s.at<int32_t>(1, 1) = 8192; // internal fixed-point scale (MUL)
+    filter2D(src, dst, -1, k32s);
+    expect_true(dst.at<uchar>(2, 2) == src.at<uchar>(2, 2), "filter2D CV_32SC1 kernel center mismatch");
+
+    Mat k64(3, 3, CV_64FC1);
+    for (int i = 0; i < 9; i++) {
+        k64.at<double>(i) = 0.0;
+    }
+    k64.at<double>(1, 1) = 1.0;
+    filter2D(src, dst, -1, k64);
+    expect_true(dst.at<uchar>(2, 2) == src.at<uchar>(2, 2), "filter2D CV_64FC1 kernel center mismatch");
+}
+
 static void test_box_filter_and_geometry()
 {
     Mat src(5, 5, CV_8UC1);
@@ -913,6 +946,56 @@ static void test_mat_semantics()
     expect_float_near(det1.determinant(), 7.5f, 1e-6f, "determinant 1x1 mismatch");
 }
 
+static void test_mat_cofactor_inverse_numeric()
+{
+    Mat m1(1, 1, CV_32FC1);
+    m1.at<float>(0, 0) = 4.0f;
+    Mat *co1 = &m1.cofactor_();
+    expect_float_near(co1->at<float>(0, 0), 4.0f, 1e-6f, "cofactor 1x1 mismatch");
+    delete co1;
+    Mat *inv1 = &m1.inverse();
+    expect_float_near(inv1->at<float>(0, 0), 0.25f, 1e-6f, "inverse 1x1 mismatch");
+    delete inv1;
+
+    Mat m2(2, 2, CV_32FC1);
+    m2.at<float>(0, 0) = 1.0f; m2.at<float>(0, 1) = 2.0f;
+    m2.at<float>(1, 0) = 3.0f; m2.at<float>(1, 1) = 4.0f;
+    Mat *co2 = &m2.cofactor_();
+    expect_float_near(co2->at<float>(0, 0), 4.0f, 1e-6f, "cofactor 2x2 (0,0) mismatch");
+    expect_float_near(co2->at<float>(0, 1), -3.0f, 1e-6f, "cofactor 2x2 (0,1) mismatch");
+    expect_float_near(co2->at<float>(1, 0), -2.0f, 1e-6f, "cofactor 2x2 (1,0) mismatch");
+    expect_float_near(co2->at<float>(1, 1), 1.0f, 1e-6f, "cofactor 2x2 (1,1) mismatch");
+    delete co2;
+    Mat *inv2 = &m2.inverse();
+    expect_float_near(inv2->at<float>(0, 0), -2.0f, 1e-5f, "inverse 2x2 (0,0) mismatch");
+    expect_float_near(inv2->at<float>(0, 1), 1.0f, 1e-5f, "inverse 2x2 (0,1) mismatch");
+    expect_float_near(inv2->at<float>(1, 0), 1.5f, 1e-5f, "inverse 2x2 (1,0) mismatch");
+    expect_float_near(inv2->at<float>(1, 1), -0.5f, 1e-5f, "inverse 2x2 (1,1) mismatch");
+    delete inv2;
+
+    Mat m3(3, 3, CV_32FC1);
+    float v[9] = {1, 2, 3, 0, 1, 4, 5, 6, 0};
+    for (int i = 0; i < 9; i++) {
+        m3.at<float>(i) = v[i];
+    }
+    Mat *co3 = &m3.cofactor_();
+    expect_float_near(co3->at<float>(0, 0), -24.0f, 1e-5f, "cofactor 3x3 (0,0) mismatch");
+    expect_float_near(co3->at<float>(0, 1), 20.0f, 1e-5f, "cofactor 3x3 (0,1) mismatch");
+    expect_float_near(co3->at<float>(2, 2), 1.0f, 1e-5f, "cofactor 3x3 (2,2) mismatch");
+    delete co3;
+    Mat *inv3 = &m3.inverse();
+    expect_float_near(inv3->at<float>(0, 0), -24.0f, 1e-4f, "inverse 3x3 (0,0) mismatch");
+    expect_float_near(inv3->at<float>(0, 1), 18.0f, 1e-4f, "inverse 3x3 (0,1) mismatch");
+    expect_float_near(inv3->at<float>(0, 2), 5.0f, 1e-4f, "inverse 3x3 (0,2) mismatch");
+    expect_float_near(inv3->at<float>(2, 2), 1.0f, 1e-4f, "inverse 3x3 (2,2) mismatch");
+    delete inv3;
+
+    Mat ns(2, 3, CV_32FC1);
+    Mat *co_ns = &ns.cofactor_();
+    expect_true(co_ns->rows == 2 && co_ns->cols == 3, "cofactor non-square shape mismatch");
+    delete co_ns;
+}
+
 static void test_mat_refcount_stress()
 {
     Mat base(4, 4, CV_8UC1);
@@ -962,6 +1045,7 @@ void unit_test_coverage()
     cout << "=== Coverage Supplement Test ===" << endl;
     test_threshold_modes();
     test_bilateral_stability();
+    test_filter2d_kernel_types();
     test_box_filter_and_geometry();
     test_hungarian_and_random();
     test_randn_double_path();
@@ -972,6 +1056,7 @@ void unit_test_coverage()
     test_resize_modes_and_errors();
     test_error_paths();
     test_mat_semantics();
+    test_mat_cofactor_inverse_numeric();
     test_mat_refcount_stress();
     test_yuv_i420_numeric();
     test_yuv_low_level_paths();
