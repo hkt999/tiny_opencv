@@ -21,6 +21,23 @@ static void expect_true(bool cond, const char *msg)
     }
 }
 
+static void expect_uchar_near(uchar got, int expect, int tol, const char *msg)
+{
+    int diff = abs((int)got - expect);
+    if (diff > tol) {
+        fail_test(msg);
+    }
+}
+
+static void expect_hue_red(uchar got, const char *msg)
+{
+    int v = (int)got;
+    if (v <= 3 || v >= 252) {
+        return;
+    }
+    fail_test(msg);
+}
+
 static void test_threshold_modes()
 {
     Mat src(1, 5, CV_8UC1);
@@ -97,6 +114,18 @@ static void test_hungarian_and_random()
     expect_true((int)assignment.at<float>(0, 0) == 1, "hungarian assignment row0 mismatch");
     expect_true((int)assignment.at<float>(1, 0) == 0, "hungarian assignment row1 mismatch");
 
+    Mat rect_cost(3, 2, CV_32FC1);
+    rect_cost.at<float>(0, 0) = 1; rect_cost.at<float>(0, 1) = 9;
+    rect_cost.at<float>(1, 0) = 9; rect_cost.at<float>(1, 1) = 1;
+    rect_cost.at<float>(2, 0) = 5; rect_cost.at<float>(2, 1) = 5;
+    Mat rect_assign(3, 1, CV_32FC1);
+    double rect_total = solver.Solve(rect_cost, rect_assign);
+    expect_true(isfinite(rect_total), "hungarian rectangular cost is non-finite");
+    for (int i = 0; i < 3; i++) {
+        int a = (int)rect_assign.at<float>(i, 0);
+        expect_true(a >= -1 && a < 2, "hungarian rectangular assignment out of range");
+    }
+
     Mat noise(64, 1, CV_32FC1);
     randn(noise, 0.0f, 1.0f);
     float first = noise.at<float>(0, 0);
@@ -110,44 +139,82 @@ static void test_hungarian_and_random()
     expect_true(has_diff, "randn produced constant output");
 }
 
-static void test_kalman_and_hsv_paths()
+static void test_kalman_noninteractive()
 {
     KalmanFilter kf(4, 2, 0, CV_32F);
     setIdentity(kf.transitionMatrix);
+    kf.transitionMatrix.at<float>(0, 2) = 1.0f;
+    kf.transitionMatrix.at<float>(1, 3) = 1.0f;
     setIdentity(kf.measurementMatrix);
     setIdentity(kf.processNoiseCov, Scalar::all(1e-3));
     setIdentity(kf.measurementNoiseCov, Scalar::all(1e-2));
     setIdentity(kf.errorCovPost, Scalar::all(1));
 
-    Mat m(2, 1, CV_32FC1);
-    m.at<float>(0, 0) = 10.0f;
-    m.at<float>(1, 0) = 20.0f;
-    Mat pred = kf.predict();
-    Mat corr = kf.correct(m);
-    expect_true(pred.rows == 4 && pred.cols == 1, "kalman predict shape mismatch");
-    expect_true(corr.rows == 4 && corr.cols == 1, "kalman correct shape mismatch");
-    expect_true(isfinite(corr.at<float>(0, 0)) && isfinite(corr.at<float>(1, 0)), "kalman output non-finite");
+    Mat meas(2, 1, CV_32FC1);
+    Mat pred;
+    Mat corr;
+    for (int i = 0; i < 20; i++) {
+        meas.at<float>(0, 0) = 10.0f + i * 0.5f;
+        meas.at<float>(1, 0) = 20.0f + i * 0.25f;
+        pred = kf.predict();
+        corr = kf.correct(meas);
+        expect_true(pred.rows == 4 && pred.cols == 1, "kalman predict shape mismatch");
+        expect_true(corr.rows == 4 && corr.cols == 1, "kalman correct shape mismatch");
+        expect_true(isfinite(corr.at<float>(0, 0)) && isfinite(corr.at<float>(1, 0)), "kalman output non-finite");
+    }
+    expect_true(fabs(corr.at<float>(0, 0) - meas.at<float>(0, 0)) < 5.0f, "kalman x estimate diverged");
+    expect_true(fabs(corr.at<float>(1, 0) - meas.at<float>(1, 0)) < 5.0f, "kalman y estimate diverged");
+}
 
-    Mat bgr(1, 1, CV_8UC3);
-    bgr.at<cv8uc3_t>(0, 0).c1 = 10;
-    bgr.at<cv8uc3_t>(0, 0).c2 = 20;
-    bgr.at<cv8uc3_t>(0, 0).c3 = 30;
+static void test_hsv_numeric()
+{
+    Mat bgr_red(1, 1, CV_8UC3);
+    bgr_red.at<cv8uc3_t>(0, 0).c1 = 0;
+    bgr_red.at<cv8uc3_t>(0, 0).c2 = 0;
+    bgr_red.at<cv8uc3_t>(0, 0).c3 = 255;
 
-    Mat hsv_from_bgr;
-    cvtColor(bgr, hsv_from_bgr, CV_BGR2HSV);
-    expect_true(hsv_from_bgr.rows == 1 && hsv_from_bgr.cols == 1, "BGR2HSV shape mismatch");
+    Mat hsv;
+    cvtColor(bgr_red, hsv, CV_BGR2HSV);
+    cv8uc3_t hsv_px = hsv.at<cv8uc3_t>(0, 0);
+    expect_hue_red(hsv_px.c1, "BGR2HSV hue mismatch for red");
+    expect_uchar_near(hsv_px.c2, 255, 2, "BGR2HSV saturation mismatch for red");
+    expect_uchar_near(hsv_px.c3, 255, 2, "BGR2HSV value mismatch for red");
 
+    Mat bgr_back;
+    cvtColor(hsv, bgr_back, CV_HSV2BGR);
+    cv8uc3_t bgr_back_px = bgr_back.at<cv8uc3_t>(0, 0);
+    expect_uchar_near(bgr_back_px.c1, 0, 3, "HSV2BGR blue mismatch for red");
+    expect_uchar_near(bgr_back_px.c2, 0, 3, "HSV2BGR green mismatch for red");
+    expect_uchar_near(bgr_back_px.c3, 255, 3, "HSV2BGR red mismatch for red");
+
+    Mat rgb_red(1, 1, CV_8UC3);
+    rgb_red.at<cv8uc3_t>(0, 0).c1 = 255;
+    rgb_red.at<cv8uc3_t>(0, 0).c2 = 0;
+    rgb_red.at<cv8uc3_t>(0, 0).c3 = 0;
     Mat hsv_from_rgb;
-    cvtColor(bgr, hsv_from_rgb, CV_RGB2HSV);
-    expect_true(hsv_from_rgb.rows == 1 && hsv_from_rgb.cols == 1, "RGB2HSV shape mismatch");
+    cvtColor(rgb_red, hsv_from_rgb, CV_RGB2HSV);
+    cv8uc3_t hsv_rgb_px = hsv_from_rgb.at<cv8uc3_t>(0, 0);
+    expect_hue_red(hsv_rgb_px.c1, "RGB2HSV hue mismatch for red");
 
-    Mat bgr_out;
-    cvtColor(hsv_from_bgr, bgr_out, CV_HSV2BGR);
-    expect_true(bgr_out.rows == 1 && bgr_out.cols == 1, "HSV2BGR shape mismatch");
+    Mat rgb_back;
+    cvtColor(hsv_from_rgb, rgb_back, CV_HSV2RGB);
+    cv8uc3_t rgb_back_px = rgb_back.at<cv8uc3_t>(0, 0);
+    expect_uchar_near(rgb_back_px.c1, 255, 3, "HSV2RGB red mismatch");
+    expect_uchar_near(rgb_back_px.c2, 0, 3, "HSV2RGB green mismatch");
+    expect_uchar_near(rgb_back_px.c3, 0, 3, "HSV2RGB blue mismatch");
 
-    Mat rgb_out;
-    cvtColor(hsv_from_bgr, rgb_out, CV_HSV2RGB);
-    expect_true(rgb_out.rows == 1 && rgb_out.cols == 1, "HSV2RGB shape mismatch");
+    Mat bgr_src(1, 1, CV_8UC3);
+    bgr_src.at<cv8uc3_t>(0, 0).c1 = 90;
+    bgr_src.at<cv8uc3_t>(0, 0).c2 = 140;
+    bgr_src.at<cv8uc3_t>(0, 0).c3 = 210;
+    Mat hsv_mid, bgr_roundtrip;
+    cvtColor(bgr_src, hsv_mid, CV_BGR2HSV);
+    cvtColor(hsv_mid, bgr_roundtrip, CV_HSV2BGR);
+    cv8uc3_t src_px = bgr_src.at<cv8uc3_t>(0, 0);
+    cv8uc3_t rt_px = bgr_roundtrip.at<cv8uc3_t>(0, 0);
+    expect_uchar_near(rt_px.c1, src_px.c1, 4, "HSV roundtrip blue mismatch");
+    expect_uchar_near(rt_px.c2, src_px.c2, 4, "HSV roundtrip green mismatch");
+    expect_uchar_near(rt_px.c3, src_px.c3, 4, "HSV roundtrip red mismatch");
 }
 
 void unit_test_coverage()
@@ -156,6 +223,7 @@ void unit_test_coverage()
     test_threshold_modes();
     test_box_filter_and_geometry();
     test_hungarian_and_random();
-    test_kalman_and_hsv_paths();
+    test_kalman_noninteractive();
+    test_hsv_numeric();
     cout << "✓ Coverage supplement test passed!" << endl;
 }

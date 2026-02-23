@@ -19,8 +19,15 @@
 // TODO: make the calculation fixed point
 static void convertHSVtoRGB(const float h, const float s, const float v, unsigned char * r, unsigned char * g, unsigned char * b)
 {
-    /* Convert hue back to 0-6 space, floor */
-    const float hex = h / 60.0;
+    /* Normalize hue so 360 maps to 0, then convert to 0-6 space */
+    float h_norm = h;
+    while (h_norm >= 360.0f) {
+        h_norm -= 360.0f;
+    }
+    while (h_norm < 0.0f) {
+        h_norm += 360.0f;
+    }
+    const float hex = h_norm / 60.0f;
     const unsigned char primary = (int) hex;
     const float secondary = hex - primary;
 
@@ -59,6 +66,11 @@ static void convertHSVtoRGB(const float h, const float s, const float v, unsigne
         *r = (v * 255.0) + 0.5;
         *g = (x * 255.0) + 0.5;
         *b = (y * 255.0) + 0.5;
+    } else {
+        /* Should not happen after hue normalization */
+        *r = (v * 255.0) + 0.5;
+        *g = (v * 255.0) + 0.5;
+        *b = (v * 255.0) + 0.5;
     }
 }
 
@@ -112,9 +124,9 @@ void rgb2hsv(uchar *src, uchar *dst, int width, int height)
     int count = width * height;
     while (count-->0) {
         convertRGBtoHSV(src[0], src[1], src[2], &h, &s, &v);
-        dst[0] = 255*h/360;
-        dst[1] = 255*s/100;
-        dst[2] = 255*s/100;
+        dst[0] = (uchar)(255.0f * h / 360.0f);
+        dst[1] = (uchar)(255.0f * s);
+        dst[2] = (uchar)(255.0f * v);
         src += 3;
         dst += 3;
     }
@@ -126,9 +138,9 @@ void bgr2hsv(uchar *src, uchar *dst, int width, int height)
     int count = width * height;
     while (count-->0) {
         convertRGBtoHSV(src[2], src[1], src[0], &h, &s, &v);
-        dst[0] = 255*h/360;
-        dst[1] = 255*s/100;
-        dst[2] = 255*s/100;
+        dst[0] = (uchar)(255.0f * h / 360.0f);
+        dst[1] = (uchar)(255.0f * s);
+        dst[2] = (uchar)(255.0f * v);
         src += 3;
         dst += 3;
     }
@@ -139,8 +151,8 @@ void hsv2rgb(uchar *src, uchar *dst, int width, int height)
     int count = width * height;
     while (count-->0) {
         float h = (src[0] * 360.0)/255.0;
-        float s = (src[1] * 100.0)/255.0;
-        float v = (src[2] * 100.0)/255.0;
+        float s = src[1] / 255.0f;
+        float v = src[2] / 255.0f;
         convertHSVtoRGB(h, s, v, &dst[0], &dst[1], &dst[2]);
         src += 3;
         dst += 3;
@@ -152,8 +164,8 @@ void hsv2bgr(uchar *src, uchar *dst, int width, int height)
     int count = width * height;
     while (count-->0) {
         float h = (src[0] * 360.0)/255.0;
-        float s = (src[1] * 100.0)/255.0;
-        float v = (src[2] * 100.0)/255.0;
+        float s = src[1] / 255.0f;
+        float v = src[2] / 255.0f;
         convertHSVtoRGB(h, s, v, &dst[2], &dst[1], &dst[0]);
         src += 3;
         dst += 3;

@@ -137,19 +137,19 @@ void cvtColor(const Mat src, Mat &dst , int code)
 	    case CV_BGR2HSV:
             dst.type = CV_8UC3;
             dst.createBuffer();
-            rgb2hsv((uchar *)src.ref->data, (uchar *)dst.ref->data, dst.cols, dst.rows);
+            bgr2hsv((uchar *)src.ref->data, (uchar *)dst.ref->data, dst.cols, dst.rows);
             break;
 
     	case CV_RGB2HSV:
             dst.type = CV_8UC3;
             dst.createBuffer();
-            bgr2hsv((uchar *)src.ref->data, (uchar *)dst.ref->data, dst.cols, dst.rows);
+            rgb2hsv((uchar *)src.ref->data, (uchar *)dst.ref->data, dst.cols, dst.rows);
             break;
 
 	    case CV_HSV2BGR:
             dst.type = CV_8UC3;
             dst.createBuffer();
-            bgr2hsv((uchar *)src.ref->data, (uchar *)dst.ref->data, dst.cols, dst.rows);
+            hsv2bgr((uchar *)src.ref->data, (uchar *)dst.ref->data, dst.cols, dst.rows);
             break;
 
 	    case CV_HSV2RGB:
