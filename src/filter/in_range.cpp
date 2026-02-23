@@ -2,7 +2,7 @@
 
 namespace KCV {
 
-void inRange(const Mat src, const Scalar lowerb, const Scalar upperb, Mat &dst) {
+void inRange(const Mat &src, const Scalar lowerb, const Scalar upperb, Mat &dst) {
     if (src.empty()) {
         throw Exception("inRange: Input image is empty");
     }

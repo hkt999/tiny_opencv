@@ -343,7 +343,7 @@ public:
 void HoughLines(const Mat src, std::vector<HoughLine> &lines, double rho, double theta, int threshold, double minLineLength = 0, double maxLineGap = 0);
 
 // Color blob detection
-void inRange(const Mat src, const Scalar lowerb, const Scalar upperb, Mat &dst);
+void inRange(const Mat &src, const Scalar lowerb, const Scalar upperb, Mat &dst);
 
 // utilities
 void split(const Mat src, Mat *mv, int count);
