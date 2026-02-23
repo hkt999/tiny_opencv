@@ -2,6 +2,7 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/types_c.h>
 #include <cstring>
+#include <cmath>
 #include "unit_test.hpp"
 
 using namespace cv;
@@ -279,6 +280,8 @@ typedef struct kalman_test_t_ {
     Mat *img;
 	int inited;
 	point_t pos;
+	int stop_requested;
+	int synthetic_step;
 } kalman_test_t;
 
 point_t cv_get_mouse(void *data)
@@ -287,11 +290,29 @@ point_t cv_get_mouse(void *data)
 	return obj->pos;
 }
 
+point_t cv_get_scripted_observation(void *data)
+{
+	kalman_test_t *obj = (kalman_test_t *)data;
+	float t = (float)obj->synthetic_step * 0.03f;
+	point_t p;
+	p.x = 256 + (int)round(120.0 * cos(t));
+	p.y = 256 + (int)round(80.0 * sin(1.2 * t));
+	obj->synthetic_step++;
+	obj->pos = p;
+	return p;
+}
+
 void mouseHandler( int e, int x, int y, int d, void *ptr)
 {
 	kalman_test_t *p = (kalman_test_t *)ptr;
 	p->pos.x = x;
 	p->pos.y = y;
+}
+
+int cv_should_stop(void *data)
+{
+	kalman_test_t *obj = (kalman_test_t *)data;
+	return obj->stop_requested;
 }
 
 // Kalman tester callback for drawing points
@@ -321,7 +342,7 @@ void cv_draw_frame(void *data, point_t observed, point_t predicted, point_t actu
     showImage("Kalman", *obj->img);
 
 	if ((cv::waitKey(100) & 255) == 27) {
-		exit(0);
+		obj->stop_requested = 1;
     }
 }
 
@@ -363,19 +384,42 @@ void static_test(bool interactive)
 	unit_test_hough_lines();
 	unit_test_in_range();
 	unit_test_coverage();
-	if (interactive) {
-		waitKey(0);
-	}
-	destroyAllWindows();
 }
 int main(int argc, const char **argv)
 {
 	kalman_test_t obj;
 
 	memset(&obj, 0, sizeof(kalman_test_t));
-	bool interactive = (argc > 1) && (strcmp(argv[1], "--interactive") == 0);
+	bool interactive = false;
+	int kalman_steps = 150;
+	for (int i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "--interactive") == 0) {
+			interactive = true;
+		} else if (strncmp(argv[i], "--kalman-steps=", 15) == 0) {
+			kalman_steps = atoi(argv[i] + 15);
+			if (kalman_steps <= 0) {
+				kalman_steps = 1;
+			}
+		}
+	}
+
 	static_test(interactive);
-	//unit_test_kalman_filter_angle(&obj, cv_draw_frame);
-	//unit_test_kalman_filter_mouse(&obj, cv_draw_frame, cv_get_mouse);
+
+	obj.stop_requested = 0;
+	obj.synthetic_step = 0;
+	int angle_status = unit_test_kalman_filter_angle(&obj, cv_draw_frame, cv_should_stop, kalman_steps);
+	obj.stop_requested = 0;
+	obj.synthetic_step = 0;
+	int mouse_status = unit_test_kalman_filter_mouse(&obj, cv_draw_frame, cv_get_scripted_observation, cv_should_stop, kalman_steps);
+	if (angle_status != 0 || mouse_status != 0) {
+		printf("Kalman interactive-style tests failed (angle=%d, mouse=%d)\n", angle_status, mouse_status);
+		destroyAllWindows();
+		return 1;
+	}
+
+	if (interactive) {
+		waitKey(150);
+	}
+	destroyAllWindows();
 	return 0;
 }

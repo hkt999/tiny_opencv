@@ -111,6 +111,22 @@ void filter2D(const Mat src, Mat &dst, int ddepth, Mat &kernel)
     if (src.empty()) {
         throw Exception("filter2D: input image is empty");
     }
+    if (kernel.empty()) {
+        throw Exception("filter2D: kernel is empty");
+    }
+    if (kernel.channels() != 1) {
+        throw Exception("filter2D: kernel must be single-channel");
+    }
+    if ((kernel.cols & 1) == 0 || (kernel.rows & 1) == 0) {
+        throw Exception("filter2D: kernel width/height must be odd");
+    }
+    if (ddepth != -1 && ddepth != src.type) {
+        throw Exception("filter2D: only ddepth=-1 or same type is supported");
+    }
+    if (kernel.type != CV_8UC1 && kernel.type != CV_32SC1 &&
+        kernel.type != CV_32FC1 && kernel.type != CV_64FC1) {
+        throw Exception("filter2D: unsupported kernel type");
+    }
 
     int chans = 0;
     switch (src.type) {

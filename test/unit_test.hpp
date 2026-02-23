@@ -62,7 +62,8 @@ typedef struct _point_t {
 
 typedef point_t (*get_observation_t)(void *data);
 typedef void (*draw_frame_t)(void *data, point_t observed, point_t predicted, point_t actual_to);
-void unit_test_kalman_filter_angle(void *data, draw_frame_t func);
-void unit_test_kalman_filter_mouse(void *data, draw_frame_t func, get_observation_t obs);
+typedef int (*should_stop_t)(void *data);
+int unit_test_kalman_filter_angle(void *data, draw_frame_t func, should_stop_t should_stop, int max_steps);
+int unit_test_kalman_filter_mouse(void *data, draw_frame_t func, get_observation_t obs, should_stop_t should_stop, int max_steps);
 
 #endif

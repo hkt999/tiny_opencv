@@ -26,9 +26,9 @@ template <typename _Tp> class Size_
 		_Tp width;
 		_Tp height;
 
-	public:
-		Size_() {}
-		Size_(_Tp _width, _Tp _height): width(_width), height(_height) {}
+		public:
+			Size_(): width(0), height(0) {}
+			Size_(_Tp _width, _Tp _height): width(_width), height(_height) {}
 		Size_(const Size_<_Tp>& sz): width(sz.width), height(sz.height) {}
 		Size_& operator = (const Size_<_Tp>& sz) {
 			width = sz.width;
@@ -345,6 +345,8 @@ void HoughLines(const Mat src, std::vector<HoughLine> &lines, double rho, double
 void inRange(const Mat src, const Scalar lowerb, const Scalar upperb, Mat &dst);
 
 // utilities
+void split(const Mat src, Mat *mv, int count);
+void merge(const Mat *mv, int count, Mat &dst);
 void randn(Mat &dst, float mean, float sigma);
 
 }; // end of namespace

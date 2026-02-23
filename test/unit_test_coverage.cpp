@@ -38,6 +38,19 @@ static void expect_hue_red(uchar got, const char *msg)
     fail_test(msg);
 }
 
+#define EXPECT_THROW(stmt, msg)                    \
+    do {                                           \
+        bool thrown = false;                       \
+        try {                                      \
+            stmt;                                  \
+        } catch (const KCV::Exception &) {         \
+            thrown = true;                         \
+        }                                          \
+        if (!thrown) {                             \
+            fail_test(msg);                        \
+        }                                          \
+    } while (0)
+
 static void test_threshold_modes()
 {
     Mat src(1, 5, CV_8UC1);
@@ -68,6 +81,14 @@ static void test_threshold_modes()
     threshold(src, out, 100, 255, THRESH_TOZERO_INV);
     uchar exp_tozero_inv[5] = {10, 50, 100, 0, 0};
     for (int i = 0; i < 5; i++) expect_true(out.at<uchar>(0, i) == exp_tozero_inv[i], "THRESH_TOZERO_INV mismatch");
+
+    Mat invalid_type(1, 3, CV_8UC3);
+    Mat invalid_out;
+    threshold(invalid_type, invalid_out, 10, 255, THRESH_BINARY);
+    expect_true(invalid_out.empty(), "threshold should reject non-gray input");
+
+    threshold(src, out, 100, 255, 99);
+    expect_true(out.empty(), "threshold invalid mode should produce empty output");
 }
 
 static void test_box_filter_and_geometry()
@@ -166,6 +187,60 @@ static void test_kalman_noninteractive()
     expect_true(fabs(corr.at<float>(1, 0) - meas.at<float>(1, 0)) < 5.0f, "kalman y estimate diverged");
 }
 
+static void fill_rgb_2x2(Mat &img, uchar r, uchar g, uchar b)
+{
+    for (int i = 0; i < 4; i++) {
+        img.at<cv8uc3_t>(i).c1 = r;
+        img.at<cv8uc3_t>(i).c2 = g;
+        img.at<cv8uc3_t>(i).c3 = b;
+    }
+}
+
+static void fill_bgr_2x2(Mat &img, uchar b, uchar g, uchar r)
+{
+    for (int i = 0; i < 4; i++) {
+        img.at<cv8uc3_t>(i).c1 = b;
+        img.at<cv8uc3_t>(i).c2 = g;
+        img.at<cv8uc3_t>(i).c3 = r;
+    }
+}
+
+static void test_yuv_i420_numeric()
+{
+    Mat rgb(2, 2, CV_8UC3);
+    fill_rgb_2x2(rgb, 255, 0, 0);
+
+    Mat yuv;
+    cvtColor(rgb, yuv, CV_RGB2YUV_I420);
+    expect_true(yuv.rows == 3 && yuv.cols == 2, "RGB2YUV_I420 shape mismatch");
+    expect_true(yuv.type == CV_8UC1, "RGB2YUV_I420 type mismatch");
+    expect_true(yuv.at<uchar>(0, 0) == 81, "RGB2YUV_I420 Y mismatch for red");
+    expect_true(yuv.at<uchar>(2, 0) == 90, "RGB2YUV_I420 U mismatch for red");
+    expect_true(yuv.at<uchar>(2, 1) == 239, "RGB2YUV_I420 V mismatch for red");
+
+    Mat rgb_back;
+    cvtColor(yuv, rgb_back, CV_YUV2RGB_I420);
+    cv8uc3_t rgb_back_px = rgb_back.at<cv8uc3_t>(0, 0);
+    expect_uchar_near(rgb_back_px.c1, 255, 14, "YUV2RGB_I420 red channel mismatch");
+    expect_uchar_near(rgb_back_px.c2, 0, 14, "YUV2RGB_I420 green channel mismatch");
+    expect_uchar_near(rgb_back_px.c3, 0, 14, "YUV2RGB_I420 blue channel mismatch");
+
+    Mat bgr(2, 2, CV_8UC3);
+    fill_bgr_2x2(bgr, 255, 0, 0);
+    Mat yuv_from_bgr;
+    cvtColor(bgr, yuv_from_bgr, CV_BGR2YUV_I420);
+    expect_true(yuv_from_bgr.at<uchar>(0, 0) == 40, "BGR2YUV_I420 Y mismatch for blue");
+    expect_true(yuv_from_bgr.at<uchar>(2, 0) == 239, "BGR2YUV_I420 U mismatch for blue");
+    expect_true(yuv_from_bgr.at<uchar>(2, 1) == 119, "BGR2YUV_I420 V mismatch for blue");
+
+    Mat bgr_back;
+    cvtColor(yuv_from_bgr, bgr_back, CV_YUV2BGR_I420);
+    cv8uc3_t bgr_back_px = bgr_back.at<cv8uc3_t>(0, 0);
+    expect_uchar_near(bgr_back_px.c1, 255, 14, "YUV2BGR_I420 blue channel mismatch");
+    expect_uchar_near(bgr_back_px.c2, 0, 14, "YUV2BGR_I420 green channel mismatch");
+    expect_uchar_near(bgr_back_px.c3, 0, 14, "YUV2BGR_I420 red channel mismatch");
+}
+
 static void test_hsv_numeric()
 {
     Mat bgr_red(1, 1, CV_8UC3);
@@ -217,6 +292,145 @@ static void test_hsv_numeric()
     expect_uchar_near(rt_px.c3, src_px.c3, 4, "HSV roundtrip red mismatch");
 }
 
+static void test_split_merge()
+{
+    Mat src(2, 2, CV_8UC3);
+    src.at<cv8uc3_t>(0, 0).c1 = 1;  src.at<cv8uc3_t>(0, 0).c2 = 2;  src.at<cv8uc3_t>(0, 0).c3 = 3;
+    src.at<cv8uc3_t>(0, 1).c1 = 4;  src.at<cv8uc3_t>(0, 1).c2 = 5;  src.at<cv8uc3_t>(0, 1).c3 = 6;
+    src.at<cv8uc3_t>(1, 0).c1 = 7;  src.at<cv8uc3_t>(1, 0).c2 = 8;  src.at<cv8uc3_t>(1, 0).c3 = 9;
+    src.at<cv8uc3_t>(1, 1).c1 = 10; src.at<cv8uc3_t>(1, 1).c2 = 11; src.at<cv8uc3_t>(1, 1).c3 = 12;
+
+    Mat ch[3];
+    split(src, ch, 3);
+    expect_true(ch[0].type == CV_8UC1 && ch[1].type == CV_8UC1 && ch[2].type == CV_8UC1, "split output type mismatch");
+    expect_true(ch[0].at<uchar>(1, 1) == 10, "split channel0 mismatch");
+    expect_true(ch[1].at<uchar>(1, 1) == 11, "split channel1 mismatch");
+    expect_true(ch[2].at<uchar>(1, 1) == 12, "split channel2 mismatch");
+
+    Mat merged;
+    merge(ch, 3, merged);
+    expect_true(merged.type == CV_8UC3 && merged.rows == 2 && merged.cols == 2, "merge output shape/type mismatch");
+    cv8uc3_t p = merged.at<cv8uc3_t>(1, 0);
+    expect_true(p.c1 == 7 && p.c2 == 8 && p.c3 == 9, "merge values mismatch");
+
+    Mat gray(2, 2, CV_8UC1);
+    gray.at<uchar>(0, 0) = 9; gray.at<uchar>(0, 1) = 8;
+    gray.at<uchar>(1, 0) = 7; gray.at<uchar>(1, 1) = 6;
+    Mat gch[1];
+    split(gray, gch, 1);
+    expect_true(gch[0].at<uchar>(1, 0) == 7, "split gray mismatch");
+    Mat gray_merged;
+    merge(gch, 1, gray_merged);
+    expect_true(gray_merged.type == CV_8UC1, "merge single channel type mismatch");
+    expect_true(gray_merged.at<uchar>(0, 1) == 8, "merge single channel value mismatch");
+
+    EXPECT_THROW(split(src, ch, 2), "split should fail on count mismatch");
+    Mat bad_merge[2];
+    bad_merge[0] = Mat(2, 2, CV_8UC1);
+    bad_merge[1] = Mat(1, 2, CV_8UC1);
+    EXPECT_THROW(merge(bad_merge, 2, merged), "merge should fail on shape mismatch");
+}
+
+static void test_resize_modes_and_errors()
+{
+    Mat src(2, 2, CV_8UC1);
+    src.at<uchar>(0, 0) = 0;
+    src.at<uchar>(0, 1) = 64;
+    src.at<uchar>(1, 0) = 128;
+    src.at<uchar>(1, 1) = 255;
+
+    Mat nearest;
+    resize(src, nearest, Size(4, 4), 0.0f, 0.0f, INTER_NEAREST);
+    expect_true(nearest.rows == 4 && nearest.cols == 4, "nearest resize shape mismatch");
+    expect_true(nearest.at<uchar>(0, 0) == 0, "nearest resize top-left mismatch");
+    expect_true(nearest.at<uchar>(3, 3) == 255, "nearest resize bottom-right mismatch");
+
+    Mat linear;
+    resize(src, linear, Size(3, 3), 0.0f, 0.0f, INTER_LINEAR);
+    expect_true(linear.rows == 3 && linear.cols == 3, "linear resize shape mismatch");
+    expect_uchar_near(linear.at<uchar>(1, 1), 112, 3, "linear resize center mismatch");
+
+    Mat by_ratio;
+    resize(src, by_ratio, Size(), 2.0f, 2.0f, INTER_NEAREST);
+    expect_true(by_ratio.rows == 4 && by_ratio.cols == 4, "ratio resize shape mismatch");
+
+    EXPECT_THROW(resize(src, nearest, Size(), 0.0f, 2.0f, INTER_NEAREST), "resize should reject invalid ratio");
+    EXPECT_THROW(resize(src, nearest, Size(4, 4), 0.0f, 0.0f, INTER_CUBIC), "resize should reject unsupported cubic mode");
+    EXPECT_THROW(resize(src, nearest, Size(4, 4), 0.0f, 0.0f, 99), "resize should reject unknown mode");
+}
+
+static void test_error_paths()
+{
+    Mat src8(3, 3, CV_8UC1);
+    Mat dst;
+
+    Mat kernel_even(2, 2, CV_32FC1);
+    for (int i = 0; i < 4; i++) kernel_even.at<float>(i) = 0.25f;
+    EXPECT_THROW(filter2D(src8, dst, -1, kernel_even), "filter2D should reject even kernel");
+
+    Mat kernel_bad_type(3, 3, CV_8UC3);
+    EXPECT_THROW(filter2D(src8, dst, -1, kernel_bad_type), "filter2D should reject multi-channel kernel");
+
+    Mat kernel_ok(3, 3, CV_32FC1);
+    for (int i = 0; i < 9; i++) kernel_ok.at<float>(i) = (i == 4) ? 1.0f : 0.0f;
+    EXPECT_THROW(filter2D(src8, dst, CV_32FC1, kernel_ok), "filter2D should reject unsupported ddepth");
+
+    Mat bad_src(3, 3, CV_32FC1);
+    EXPECT_THROW(filter2D(bad_src, dst, -1, kernel_ok), "filter2D should reject unsupported source type");
+
+    Mat src_bgr(2, 2, CV_8UC3);
+    EXPECT_THROW(cvtColor(src8, dst, CV_BGR2GRAY), "cvtColor should reject wrong src type");
+    EXPECT_THROW(cvtColor(src_bgr, dst, 999), "cvtColor should reject unknown code");
+
+    Mat odd(3, 3, CV_8UC3);
+    EXPECT_THROW(cvtColor(odd, dst, CV_BGR2YUV_I420), "cvtColor should reject odd-size I420 input");
+
+    Mat invalid_i420(5, 2, CV_8UC1);
+    EXPECT_THROW(cvtColor(invalid_i420, dst, CV_YUV2RGB_I420), "cvtColor should reject invalid I420 layout");
+}
+
+static void test_mat_semantics()
+{
+    Mat a(2, 2, CV_8UC1);
+    a.at<uchar>(0, 0) = 10;
+    a.at<uchar>(0, 1) = 20;
+    a.at<uchar>(1, 0) = 30;
+    a.at<uchar>(1, 1) = 40;
+
+    Mat b = a;
+    expect_true(a.ref == b.ref, "copy constructor should share ref");
+    b.at<uchar>(0, 0) = 77;
+    expect_true(a.at<uchar>(0, 0) == 77, "shared ref write should be visible");
+
+    Mat *clone_p = &a.clone();
+    clone_p->at<uchar>(0, 0) = 5;
+    expect_true(a.at<uchar>(0, 0) == 77, "clone should be deep copy");
+    delete clone_p;
+
+    Mat copy_v;
+    a.copyTo(copy_v);
+    copy_v.at<uchar>(1, 1) = 99;
+    expect_true(a.at<uchar>(1, 1) == 40, "copyTo should be deep copy");
+
+    Mat self = a;
+    self = self;
+    expect_true(self.at<uchar>(1, 0) == 30, "self assignment should keep data");
+
+    Mat roi_src(3, 3, CV_8UC1);
+    int val = 0;
+    for (int r = 0; r < 3; r++) {
+        for (int c = 0; c < 3; c++) {
+            roi_src.at<uchar>(r, c) = (uchar)(val++);
+        }
+    }
+    Mat roi_copy(roi_src, Rect(1, 1, 2, 2));
+    expect_true(roi_copy.rows == 2 && roi_copy.cols == 2, "roi constructor shape mismatch");
+    expect_true(roi_copy.at<uchar>(0, 0) == roi_src.at<uchar>(1, 1), "roi constructor value mismatch");
+
+    Mat m1(2, 3, CV_32FC1), m2(4, 2, CV_32FC1);
+    EXPECT_THROW(m1 * m2, "operator* should reject dimension mismatch");
+}
+
 void unit_test_coverage()
 {
     cout << "=== Coverage Supplement Test ===" << endl;
@@ -224,6 +438,11 @@ void unit_test_coverage()
     test_box_filter_and_geometry();
     test_hungarian_and_random();
     test_kalman_noninteractive();
+    test_split_merge();
+    test_resize_modes_and_errors();
+    test_error_paths();
+    test_mat_semantics();
+    test_yuv_i420_numeric();
     test_hsv_numeric();
     cout << "✓ Coverage supplement test passed!" << endl;
 }

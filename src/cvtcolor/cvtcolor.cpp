@@ -76,17 +76,27 @@ static void do_yuv2rgb_i420(uchar *src, uchar *dst, int cols, int rows)
 // Color conversion
 void cvtColor(const Mat src, Mat &dst , int code)
 {
+    if (src.empty()) {
+        throw Exception("cvtColor: input image is empty");
+    }
+
     dst.cols = src.cols;
     dst.rows = src.rows;
 
     switch (code) {
-    	case CV_BGR2GRAY:
+	    case CV_BGR2GRAY:
+            if (src.type != CV_8UC3) {
+                throw Exception("cvtColor: CV_BGR2GRAY expects CV_8UC3");
+            }
             dst.type = CV_8UC1;
             dst.createBuffer();
             do_bgr2gray(src.cols, src.rows, (uchar *)src.ref->data, (uchar *)dst.ref->data);
             break;
 
         case CV_RGB2GRAY:
+            if (src.type != CV_8UC3) {
+                throw Exception("cvtColor: CV_RGB2GRAY expects CV_8UC3");
+            }
             dst.type = CV_8UC1;
             dst.createBuffer();
             do_rgb2gray(src.cols, src.rows, (uchar *)src.ref->data, (uchar *)dst.ref->data);
@@ -94,12 +104,21 @@ void cvtColor(const Mat src, Mat &dst , int code)
 
 	    case CV_GRAY2BGR:
         case CV_GRAY2RGB:
+            if (src.type != CV_8UC1) {
+                throw Exception("cvtColor: CV_GRAY2BGR/CV_GRAY2RGB expects CV_8UC1");
+            }
             dst.type = CV_8UC3;
             dst.createBuffer();
             do_gray2bgr_rgb(src.cols, src.rows, (uchar *)src.ref->data, (uchar *)dst.ref->data);
             break;
 
 	    case CV_BGR2YUV_I420:
+            if (src.type != CV_8UC3) {
+                throw Exception("cvtColor: CV_BGR2YUV_I420 expects CV_8UC3");
+            }
+            if ((src.cols & 1) || (src.rows & 1)) {
+                throw Exception("cvtColor: CV_BGR2YUV_I420 expects even width/height");
+            }
             dst.type = CV_8UC1;
             dst.rows = (src.rows * 3) / 2;
             dst.createBuffer();
@@ -107,6 +126,12 @@ void cvtColor(const Mat src, Mat &dst , int code)
             break;
 
         case CV_RGB2YUV_I420:
+            if (src.type != CV_8UC3) {
+                throw Exception("cvtColor: CV_RGB2YUV_I420 expects CV_8UC3");
+            }
+            if ((src.cols & 1) || (src.rows & 1)) {
+                throw Exception("cvtColor: CV_RGB2YUV_I420 expects even width/height");
+            }
             dst.type = CV_8UC1;
             dst.rows = (src.rows * 3) / 2;
             dst.createBuffer();
@@ -114,6 +139,12 @@ void cvtColor(const Mat src, Mat &dst , int code)
             break;
 
 	    case CV_YUV2BGR_I420:
+            if (src.type != CV_8UC1) {
+                throw Exception("cvtColor: CV_YUV2BGR_I420 expects CV_8UC1");
+            }
+            if (src.rows % 3 != 0 || (src.cols & 1)) {
+                throw Exception("cvtColor: CV_YUV2BGR_I420 expects I420 layout");
+            }
             dst.type = CV_8UC3;
             dst.rows = (src.rows * 2) / 3; 
             dst.createBuffer();
@@ -121,6 +152,12 @@ void cvtColor(const Mat src, Mat &dst , int code)
             break;
 
         case CV_YUV2RGB_I420:
+            if (src.type != CV_8UC1) {
+                throw Exception("cvtColor: CV_YUV2RGB_I420 expects CV_8UC1");
+            }
+            if (src.rows % 3 != 0 || (src.cols & 1)) {
+                throw Exception("cvtColor: CV_YUV2RGB_I420 expects I420 layout");
+            }
             dst.type = CV_8UC3;
             dst.rows = (src.rows * 2) / 3; 
             dst.createBuffer();
@@ -129,37 +166,52 @@ void cvtColor(const Mat src, Mat &dst , int code)
 
         case CV_RGB2BGR:
         case CV_BGR2RGB:
+            if (src.type != CV_8UC3) {
+                throw Exception("cvtColor: CV_RGB2BGR/CV_BGR2RGB expects CV_8UC3");
+            }
             dst.type = CV_8UC3;
             dst.createBuffer();
             rgb_swap_order((uchar *)src.ref->data, (uchar *)dst.ref->data, dst.cols, dst.rows);
             break;
 
 	    case CV_BGR2HSV:
+            if (src.type != CV_8UC3) {
+                throw Exception("cvtColor: CV_BGR2HSV expects CV_8UC3");
+            }
             dst.type = CV_8UC3;
             dst.createBuffer();
             bgr2hsv((uchar *)src.ref->data, (uchar *)dst.ref->data, dst.cols, dst.rows);
             break;
 
     	case CV_RGB2HSV:
+            if (src.type != CV_8UC3) {
+                throw Exception("cvtColor: CV_RGB2HSV expects CV_8UC3");
+            }
             dst.type = CV_8UC3;
             dst.createBuffer();
             rgb2hsv((uchar *)src.ref->data, (uchar *)dst.ref->data, dst.cols, dst.rows);
             break;
 
 	    case CV_HSV2BGR:
+            if (src.type != CV_8UC3) {
+                throw Exception("cvtColor: CV_HSV2BGR expects CV_8UC3");
+            }
             dst.type = CV_8UC3;
             dst.createBuffer();
             hsv2bgr((uchar *)src.ref->data, (uchar *)dst.ref->data, dst.cols, dst.rows);
             break;
 
 	    case CV_HSV2RGB:
+            if (src.type != CV_8UC3) {
+                throw Exception("cvtColor: CV_HSV2RGB expects CV_8UC3");
+            }
             dst.type = CV_8UC3;
             dst.createBuffer();
             hsv2rgb((uchar *)src.ref->data, (uchar *)dst.ref->data, dst.cols, dst.rows);
             break;
 
         default:
-            break;
+            throw Exception("cvtColor: unsupported conversion code");
     }
 }
 

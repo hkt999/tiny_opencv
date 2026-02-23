@@ -1,19 +1,31 @@
-#include <vector>
-#include <iostream>
-#include <cstdlib>
-#include <fstream>
+#include <cmath>
+#include <cstdio>
 #include "unit_test.hpp"
-
-
-#include <math.h>
 #include <tiny_opencv.hpp>
 #include <kalman_filter.hpp>
-#define IMG_W   512
-#define IMG_H   512
 
 using namespace kcv;
 
-inline point_t phi2xy(Mat &mat)
+#define IMG_W   512
+#define IMG_H   512
+
+static inline float point_dist(point_t a, point_t b)
+{
+    float dx = (float)a.x - (float)b.x;
+    float dy = (float)a.y - (float)b.y;
+    return sqrtf(dx * dx + dy * dy);
+}
+
+static inline float angle_dist(float a, float b)
+{
+    float d = fabsf(a - b);
+    while (d > (float)M_PI) {
+        d = fabsf(d - (float)(2.0 * M_PI));
+    }
+    return d;
+}
+
+static inline point_t phi2xy(Mat &mat)
 {
     point_t p;
     p.x = round(IMG_W / 2 + IMG_W / 3 * cos(mat.at<float>(0)));
@@ -21,152 +33,133 @@ inline point_t phi2xy(Mat &mat)
     return p;
 }
 
-void unit_test_kalman_filter_mouse(void *data, draw_frame_t drawcb, get_observation_t observcb)
+int unit_test_kalman_filter_mouse(void *data, draw_frame_t drawcb, get_observation_t observcb, should_stop_t should_stop, int max_steps)
 {
-	// >>> Kalman Filter Initialization
-	int stateSize = 4;  // [x, y, v_x, v_y]
-	int measSize = 2;   // [z_x, z_y] // we will only measure mouse cursor x and y
-	int contrSize = 0;  // no control input
+    if (observcb == 0 || max_steps <= 0) {
+        return -1;
+    }
 
-	unsigned int F_type = CV_32F;
+    int stateSize = 4;  // [x, y, v_x, v_y]
+    int measSize = 2;   // [z_x, z_y]
+    KalmanFilter KF(stateSize, measSize, 0, CV_32F);
 
-	// initiation of OpenCV Kalman Filter
-	KalmanFilter KF(stateSize, measSize, contrSize, F_type);
+    Mat state(stateSize, 1, CV_32F);
+    Mat meas(measSize, 1, CV_32F);
+    Mat estimated;
 
-	// creating state vector
-	Mat state(stateSize, 1, F_type);  // [x, y, v_x, v_y] // column Matrix
+    setIdentity(KF.transitionMatrix);
+    KF.transitionMatrix.at<float>(0, 2) = 1.0f;
+    KF.transitionMatrix.at<float>(1, 3) = 1.0f;
+    setIdentity(KF.measurementMatrix);
+    setIdentity(KF.processNoiseCov, Scalar::all(1e-3));
+    setIdentity(KF.measurementNoiseCov, Scalar::all(1e-2));
+    setIdentity(KF.errorCovPost, Scalar::all(1));
 
-										  // creating measurement vector
-	Mat meas(measSize, 1, F_type);    // [z_x, z_y] // column matrix
+    point_t start = observcb(data);
+    state.at<float>(0) = (float)start.x;
+    state.at<float>(1) = (float)start.y;
+    state.at<float>(2) = 0.0f;
+    state.at<float>(3) = 0.0f;
+    state.copyTo(KF.statePost);
 
-										  // Transition state matrix A
-										  // Note: set dT at each processing step!
-										  // X_k = A*X_k-1
-										  // X_k = current state := x_k, y_k, v_x_k
-										  // X_k-1 = previous state
-										  // A =
-										  // [1 0 dT 0]
-										  // [0 1 0 dT]
-										  // [0 0 1  0]
-										  // [0 0 0  1]
-										  // observe it is an identity matrix with dT inputs that we will provide later
+    int steps = 0;
+    int samples = 0;
+    float err_sum = 0.0f;
+    const int warmup = 5;
+    for (int i = 0; i < max_steps; i++) {
+        state = KF.predict();
+        point_t predicted = {(int)state.at<float>(0), (int)state.at<float>(1)};
 
-    state.print("state");
-    meas.print("meas");
-	setIdentity(KF.transitionMatrix);
-    KF.transitionMatrix.print("KF.transitionMatrix");
-
-	// Measurement Matrix (This is C or H matrix)
-	// size of C is measSize x stateSize
-	// only those values will set which we can get as measurement in a state vector
-	// here out of [x, y, v_x and v_y] we can only measure x, y of the mouse cursor coordianates
-	// so we set only element "0" and "5".
-	// [1 0 0 0]
-	// [0 1 0 0]
-
-	// Process Noise Covariance Matrix := stateSize x stateSize
-	//  [Ex 0  0    0]
-	//  [0 Ey  0    0]
-	//  [0 0 E_v_x  0]
-	//  [0 0  0  E_v_y]
-
-	setIdentity(KF.measurementMatrix);
-	setIdentity(KF.processNoiseCov, Scalar::all(1e-4));
-	setIdentity(KF.measurementNoiseCov, Scalar::all(1e-1));
-	setIdentity(KF.errorCovPost, Scalar::all(.1));
-
-    KF.measurementMatrix.print("KF.measurementMatrix");
-    KF.processNoiseCov.print("KF.processNoiseCov");
-    KF.measurementNoiseCov.print("KF.measurementNoiseCov");
-    KF.errorCovPost.print("KF.errorCovPost");
-
-	// Measure Noise Covariance Matrix
-	//cv::setIdentity(KF.measurementNoiseCov, cv::Scalar(1e-1));
-
-	// <<< Kalman Filter initializationOnThread
-
-    for(;;) {
-        state = KF.predict(); // First predict, to update the internal statePre variable
-
-		//Point predictPt(state.at<float>(0), state.at<float>(1));
-		// <<< Kalman Prediction
-        point_t predicted;
-        predicted.x = (int)state.at<float>(0);
-        predicted.y = (int)state.at<float>(1);
-
-		// >>> Get Mouse Point
         point_t observed = observcb(data);
+        meas.at<float>(0) = (float)observed.x;
+        meas.at<float>(1) = (float)observed.y;
 
-		// >>> Passing the measured values to the measurement vector
-		meas.at<float>(0) = observed.x;
-		meas.at<float>(1) = observed.y;
+        estimated = KF.correct(meas);
+        point_t actual_to = {(int)estimated.at<float>(0), (int)estimated.at<float>(1)};
 
-		// >>> Kalman Update Phase
-		Mat estimated = KF.correct(meas);
+        if (drawcb) {
+            drawcb(data, observed, predicted, actual_to);
+        }
 
-        point_t actual_to;
-        actual_to.x = estimated.at<float>(0);
-        actual_to.y = estimated.at<float>(1);
+        if (i >= warmup) {
+            err_sum += point_dist(actual_to, observed);
+            samples++;
+        }
 
-        drawcb(data, observed, predicted, actual_to);
-	}
+        steps++;
+        if (should_stop && should_stop(data)) {
+            break;
+        }
+    }
+
+    if (samples <= 0) {
+        return -1;
+    }
+
+    float mean_err = err_sum / samples;
+    printf("Kalman(mouse) steps=%d mean_err=%.3f\n", steps, mean_err);
+    return (mean_err < 35.0f) ? 0 : -1;
 }
 
-void unit_test_kalman_filter_angle(void *data, draw_frame_t drawcb)
+int unit_test_kalman_filter_angle(void *data, draw_frame_t drawcb, should_stop_t should_stop, int max_steps)
 {
-    // Initialize, create Kalman filter object, window, random number generator etc.
+    if (max_steps <= 0) {
+        return -1;
+    }
+
     KalmanFilter kalman(2, 1, 0);
 
-    // Initialize with random guess.
     Mat x_k(2, 1, CV_32F);
     randn(x_k, 0.0, 0.1);
-
-    // process noise
     Mat w_k(2, 1, CV_32F);
-
-    // measurements, only one parameter for angle
     Mat z_k = Mat::zeros(1, 1, CV_32F);
 
-    // Transition matrix 'F' describes relationship between model parameters at step k and at step k+1 (this is
-    // the "dynamics" in our model.
     float F[] = {1, 1, 0, 1};
     kalman.transitionMatrix = Mat(2, 2, CV_32F, F).clone();
 
-    // Initialize other Kalman filter parameters.
     setIdentity(kalman.measurementMatrix, Scalar(1));
     setIdentity(kalman.processNoiseCov, Scalar(1e-5));
     setIdentity(kalman.measurementNoiseCov, Scalar(1e-1));
     setIdentity(kalman.errorCovPost, Scalar(1));
-
-    // choose random initial state
     randn(kalman.statePost, 0.0, 0.1);
 
-    for (;;) {
-        // predict point position
+    int steps = 0;
+    int samples = 0;
+    float err_sum = 0.0f;
+    const int warmup = 10;
+    for (int i = 0; i < max_steps; i++) {
         Mat y_k = kalman.predict();
-        y_k.print("y_k (prediction)");
 
-        // generate measurement (z_k)
         randn(z_k, 0.0, sqrt(static_cast<double>(kalman.measurementNoiseCov.at<float>(0, 0))));
         z_k = kalman.measurementMatrix * x_k + z_k;
-        z_k.print("z_k (noise)");
-        kalman.measurementMatrix.print("measurementMatrix");
-        x_k.print("x_k");
-        z_k.print("observed");
 
-        // plot points (e.g., convert)
         point_t observed = phi2xy(z_k);
         point_t predicted = phi2xy(y_k);
         point_t actual_to = phi2xy(x_k);
-        drawcb(data, observed, predicted, actual_to);
+        if (drawcb) {
+            drawcb(data, observed, predicted, actual_to);
+        }
 
-        // adjust Kalman filter state
-        kalman.correct(z_k);
+        Mat corrected = kalman.correct(z_k);
+        if (i >= warmup) {
+            err_sum += angle_dist(corrected.at<float>(0), x_k.at<float>(0));
+            samples++;
+        }
 
-        // Apply the transition matrix 'F' (e.g., step time forward) and also apply the "process" noise w_k
         randn(w_k, 0.0, sqrt(static_cast<double>(kalman.processNoiseCov.at<float>(0, 0))));
-
         x_k = kalman.transitionMatrix * x_k + w_k;
-    }
-}
 
+        steps++;
+        if (should_stop && should_stop(data)) {
+            break;
+        }
+    }
+
+    if (samples <= 0) {
+        return -1;
+    }
+
+    float mean_err = err_sum / samples;
+    printf("Kalman(angle) steps=%d mean_err=%.3f rad\n", steps, mean_err);
+    return (mean_err < 0.6f) ? 0 : -1;
+}

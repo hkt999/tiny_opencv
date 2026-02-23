@@ -4,8 +4,13 @@ namespace KCV {
 
 void threshold(const Mat in, Mat &out, double thresh, double maxval, int type)
 {
-    if (in.type != CV_8UC1) // only support gray level
+    if (in.empty() || in.type != CV_8UC1) { // only support gray level
+        out.release();
+        out.rows = 0;
+        out.cols = 0;
+        out.type = in.type;
         return;
+    }
 
     out.rows = in.rows;
     out.cols = in.cols;
@@ -51,6 +56,7 @@ void threshold(const Mat in, Mat &out, double thresh, double maxval, int type)
             break;
 
         default:
+            out.release();
             out.cols = 0;
             out.rows = 0;
             break;

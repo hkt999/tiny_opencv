@@ -114,6 +114,10 @@ Mat getAffineTransform(const Point2f src[], const Point2f dst[]);
 
 // Color blob detection
 void inRange(const Mat src, const Scalar lowerb, const Scalar upperb, Mat &dst);
+
+// Channel ops
+void split(const Mat src, Mat *mv, int count);
+void merge(const Mat *mv, int count, Mat &dst);
 ```
 
 ## Supported Data Types
@@ -135,6 +139,28 @@ Run the test suite:
 
 ```bash
 ./tiny_opencv_test
+```
+
+Optional test flags:
+
+```bash
+# Enable window display during tests
+./tiny_opencv_test --interactive
+
+# Limit kalman interactive-style test steps
+./tiny_opencv_test --kalman-steps=100
+```
+
+Coverage gate (line/branch thresholds):
+
+```bash
+./scripts/coverage_gate.sh
+```
+
+Customize thresholds with env vars:
+
+```bash
+MIN_LINE_COVERAGE=75 MIN_BRANCH_COVERAGE=55 ./scripts/coverage_gate.sh
 ```
 
 Note: The CMake configuration currently always builds the test target and requires OpenCV to be installed and discoverable. If you only need the library and do not have OpenCV, remove/disable the `tiny_opencv_test` target in `CMakeLists.txt` or add your own CMake option to guard it.
