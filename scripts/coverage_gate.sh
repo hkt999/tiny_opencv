@@ -5,15 +5,19 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-$ROOT_DIR/build_coverage}"
 MIN_LINE="${MIN_LINE_COVERAGE:-70}"
 MIN_BRANCH="${MIN_BRANCH_COVERAGE:-50}"
-KEY_FILE_GATES="${KEY_FILE_GATES:-src/mat.cpp:82:88;src/filter/filter_2d.cpp:92:90;src/algorithm/kalman_filter.cpp:95:95;src/randn.cpp:95:95;src/utils/split.cpp:90:95;src/utils/merge.cpp:92:94;src/cvtcolor/rgb2hsv.cpp:68:65}"
+KEY_FILE_GATES="${KEY_FILE_GATES:-src/mat.cpp:82:88;src/filter/filter_2d.cpp:92:90;src/algorithm/kalman_filter.cpp:95:95;src/randn.cpp:95:95;src/utils/split.cpp:88:95;src/utils/merge.cpp:90:94;src/cvtcolor/rgb2hsv.cpp:68:65}"
 
 echo "[coverage] configure: $BUILD_DIR"
+rm -rf "$BUILD_DIR"
 cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON >/dev/null
 echo "[coverage] build"
 cmake --build "$BUILD_DIR" -j >/dev/null
 find "$BUILD_DIR" -name '*.gcda' -delete
 echo "[coverage] run tests"
-"$BUILD_DIR/tiny_opencv_test" >/dev/null
+if ! "$BUILD_DIR/tiny_opencv_test" >/dev/null; then
+    echo "[coverage] error: tiny_opencv_test failed"
+    exit 1
+fi
 
 if ! command -v gcov >/dev/null 2>&1; then
     echo "[coverage] error: gcov not found"
