@@ -3,6 +3,7 @@
 
 #include "tiny_types.hpp"
 #include <cassert>
+#include <cstddef>
 #include <vector>
 
 #define KCV kcv
@@ -258,7 +259,9 @@ class Mat
 		template <typename _Tp> inline _Tp& at(int idx) const {
 			assert(ref != 0 && ref->data != 0);
 			assert(idx >= 0);
-			assert((size_t)(idx + 1) * sizeof(_Tp) <= (size_t)rows * cols * elemSize());
+			assert(static_cast<std::size_t>(idx + 1) * sizeof(_Tp) <=
+			       static_cast<std::size_t>(rows) * static_cast<std::size_t>(cols) *
+			           static_cast<std::size_t>(elemSize()));
 			_Tp *d = (_Tp *)ref->data;
 			return d[idx];
 		}
